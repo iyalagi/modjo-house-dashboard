@@ -11,9 +11,7 @@ import {
   Plus, 
   Minus, 
   CheckCircle2, 
-  AlertCircle,
-  Moon,
-  Sun
+  AlertCircle 
 } from 'lucide-react';
 import HumidityChart from '../components/HumidityChart';
 import StatusAlert from '../components/StatusAlert';
@@ -32,7 +30,6 @@ const Dashboard = () => {
   const [timeframe, setTimeframe] = useState('30m'); 
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
   const [userEmail, setUserEmail] = useState('');
-  const [isDarkMode, setIsDarkMode] = useState(false);
   
   const [localLow, setLocalLow] = useState(null);
   const [localHigh, setLocalHigh] = useState(null);
@@ -189,83 +186,73 @@ const Dashboard = () => {
   if (loading) return <PageLoader />;
 
   return (
-    <div className={`min-h-screen transition-colors duration-500 ${isDarkMode ? 'bg-[#0f172a]' : 'bg-grid-pattern'} pb-12 font-sans selection:bg-primary-container`}>
+    <div className="min-h-screen bg-grid-pattern pb-12 font-sans selection:bg-primary-container">
       {/* Toast Notification - STRICTLY TOP CENTER */}
       {toast.show && (
-        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-3 px-6 py-3 rounded-full shadow-[0_10px_40px_rgba(0,0,0,0.2)] animate-bounce-in bg-white border-2 border-surface-outline min-w-[320px] justify-center text-gray-900">
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-3 px-6 py-3 rounded-full shadow-[0_10px_40px_rgba(0,0,0,0.2)] animate-bounce-in bg-white border-2 border-surface-outline min-w-[320px] justify-center">
           {toast.type === 'success' ? (
             <div className="bg-[#34a853]/20 p-1.5 rounded-full"><CheckCircle2 className="h-5 w-5 text-[#34a853]" /></div>
           ) : (
             <div className="bg-[#ea4335]/20 p-1.5 rounded-full"><AlertCircle className="h-5 w-5 text-[#ea4335]" /></div>
           )}
-          <span className="font-black text-sm uppercase tracking-widest">{toast.message}</span>
+          <span className="font-black text-sm text-gray-900 uppercase tracking-widest">{toast.message}</span>
         </div>
       )}
 
-      <header className={`transition-all duration-500 border-b sticky top-0 z-50 px-6 h-18 flex items-center justify-between shadow-xl ${isDarkMode ? 'bg-[#1e293b] border-[#334155]' : 'bg-[#1a73e8] border-[#174ea6]'}`}>
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-4">
-            <div className="bg-white/20 p-2 rounded-2xl rotate-3 border border-white/40">
-              <Droplets className="text-white h-6 w-6" />
-            </div>
-            <div className="flex flex-col">
-              <h1 className="text-2xl font-black text-white tracking-tighter leading-none">
-                Modjo <span className={isDarkMode ? 'text-primary' : 'text-[#d2e3fc]'}>Smart</span>
-              </h1>
-              <div className="flex items-center gap-1.5 mt-1">
-                <div className={`h-2 w-2 rounded-full ${isOnline ? 'bg-[#34a853] shadow-[0_0_8px_#34a853]' : 'bg-[#ea4335]'}`}></div>
-                <span className="text-[10px] font-black text-white/90 uppercase tracking-widest">{isOnline ? 'Online' : 'Offline'}</span>
-              </div>
+      <header className="bg-[#1a73e8] border-b border-[#174ea6] sticky top-0 z-50 px-6 h-18 flex items-center justify-between shadow-xl">
+        <div className="flex items-center gap-4">
+          <div className="bg-white/20 p-2 rounded-2xl rotate-3 border border-white/40">
+            <Droplets className="text-white h-6 w-6" />
+          </div>
+          <div className="flex flex-col">
+            <h1 className="text-2xl font-black text-white tracking-tighter leading-none">
+              Modjo <span className="text-[#d2e3fc]">Smart</span>
+            </h1>
+            <div className="flex items-center gap-1.5 mt-1">
+              <div className={`h-2 w-2 rounded-full ${isOnline ? 'bg-[#34a853] shadow-[0_0_8px_#34a853]' : 'bg-[#ea4335]'}`}></div>
+              <span className="text-[10px] font-black text-white/90 uppercase tracking-widest">{isOnline ? 'Sistem Online' : 'Sistem Offline'}</span>
             </div>
           </div>
-
-          {/* THEME TOGGLE */}
-          <button 
-            onClick={() => setIsDarkMode(!isDarkMode)}
-            className={`p-2 rounded-xl transition-all active:scale-95 border ${isDarkMode ? 'bg-primary/20 border-primary/40 text-yellow-400' : 'bg-white/10 border-white/20 text-white hover:bg-white/20'}`}
-          >
-            {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-          </button>
         </div>
         
         <div className="flex items-center gap-3">
           <button onClick={() => refreshData(true)} disabled={refreshing} className="p-2.5 hover:bg-white/10 rounded-full transition-all text-white border border-white/10">
             <SyncLoader />
           </button>
-          <button onClick={handleLogout} className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-white font-black text-xs transition-all shadow-lg active:scale-95 border ${isDarkMode ? 'bg-[#334155] border-[#475569] hover:bg-[#475569]' : 'bg-[#d93025] border-[#a50e0e] hover:bg-[#b21f16]'}`}>
+          <button onClick={handleLogout} className="flex items-center gap-2 bg-[#d93025] px-5 py-2.5 rounded-full text-white font-black text-xs hover:bg-[#b21f16] transition-all shadow-lg active:scale-95 border border-[#a50e0e]">
             <LogOut className="h-4 w-4" /> <span className="hidden sm:inline">KELUAR</span>
           </button>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-8 space-y-8 animate-dashboard-reveal">
-        <StatusAlert humidity={data.humidity} dark={isDarkMode} />
+        <StatusAlert humidity={data.humidity} />
 
         {/* Stats Grid */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-          <StatCard label="Kelembaban" value={`${data.humidity}%`} icon={<Wind className="text-primary h-6 w-6" />} color="primary" dark={isDarkMode} />
-          <StatCard label="Pompa" value={data.pump_status} icon={<Zap className={`h-6 w-6 ${data.pump_status === 'ON' ? 'text-yellow-500 fill-yellow-500 animate-pulse' : 'text-gray-300'}`} />} active={data.pump_status === 'ON'} color="secondary" dark={isDarkMode} />
-          <StatCard label="Intensitas" value={`${data.pressure}%`} icon={<Droplets className="text-cyan-500 h-6 w-6" />} color="primary" dark={isDarkMode} />
-          <StatCard label="Jadwal" value={data.misting_schedule} icon={<Clock className="text-purple-500 h-6 w-6" />} color="primary" dark={isDarkMode} />
+          <StatCard label="Kelembaban" value={`${data.humidity}%`} icon={<Wind className="text-primary h-6 w-6" />} color="primary" />
+          <StatCard label="Pompa" value={data.pump_status} icon={<Zap className={`h-6 w-6 ${data.pump_status === 'ON' ? 'text-yellow-500 fill-yellow-500 animate-pulse' : 'text-gray-300'}`} />} active={data.pump_status === 'ON'} color="secondary" />
+          <StatCard label="Intensitas" value={`${data.pressure}%`} icon={<Droplets className="text-cyan-500 h-6 w-6" />} color="primary" />
+          <StatCard label="Jadwal" value={data.misting_schedule} icon={<Clock className="text-purple-500 h-6 w-6" />} color="primary" />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-8">
             {/* Chart Section */}
-            <div className={`transition-all duration-500 rounded-google shadow-sm border overflow-hidden ${isDarkMode ? 'bg-[#1e293b] border-[#334155]' : 'bg-surface border-surface-outline'}`}>
-              <div className={`p-6 border-b flex items-center justify-between ${isDarkMode ? 'border-[#334155]' : 'border-surface-variant'}`}>
+            <div className="bg-surface rounded-google shadow-sm border border-surface-outline overflow-hidden">
+              <div className="p-6 border-b border-surface-variant flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="bg-primary/10 p-2 rounded-xl">
                     <Activity className="h-5 w-5 text-primary" />
                   </div>
-                  <h3 className={`text-sm font-bold uppercase tracking-widest ${isDarkMode ? 'text-gray-300' : 'text-gray-800'}`}>Tren Real-time</h3>
+                  <h3 className="text-sm font-bold text-gray-800 uppercase tracking-widest">Tren Real-time</h3>
                 </div>
-                <div className={`flex p-1 rounded-full border shadow-sm ${isDarkMode ? 'bg-[#0f172a] border-[#334155]' : 'bg-white border-surface-outline'}`}>
+                <div className="flex bg-white p-1 rounded-full border border-surface-outline shadow-sm">
                   {['30m', '1h', '12h_week', '24h_week'].map(t => (
                     <button 
                       key={t} 
                       onClick={() => setTimeframe(t)} 
-                      className={`px-4 py-1.5 text-[10px] font-black rounded-full transition-all ${timeframe === t ? 'bg-[#1a73e8] text-white shadow-lg' : isDarkMode ? 'text-gray-500 hover:text-gray-300' : 'text-gray-500 hover:bg-gray-100 hover:text-[#1a73e8]'}`}
+                      className={`px-4 py-1.5 text-[10px] font-black rounded-full transition-all ${timeframe === t ? 'bg-[#1a73e8] text-white shadow-lg' : 'text-gray-500 hover:bg-gray-100 hover:text-[#1a73e8]'}`}
                     >
                       {t.replace('_week', '').toUpperCase()}
                     </button>
@@ -273,21 +260,21 @@ const Dashboard = () => {
                 </div>
               </div>
               <div className="p-6 h-[400px]">
-                <HumidityChart data={data.history} timeframe={timeframe} dark={isDarkMode} />
+                <HumidityChart data={data.history} timeframe={timeframe} />
               </div>
             </div>
 
             {/* Distribution Grid */}
-            <div className={`transition-all duration-500 p-8 rounded-google shadow-sm border ${isDarkMode ? 'bg-[#1e293b] border-[#334155]' : 'bg-surface border-surface-outline'}`}>
+            <div className="bg-surface p-8 rounded-google shadow-sm border border-surface-outline">
               <h3 className="text-xs font-bold text-gray-400 mb-6 flex items-center gap-2 uppercase tracking-[0.2em]">
                 <Droplets className="text-primary h-4 w-4" /> Distribusi 4 Sensor G0
               </h3>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
                 {data.sensor_nodes.map((val, i) => (
-                  <div key={i} className={`flex flex-col items-center justify-center p-6 rounded-google border-2 transition-all ${val > 0 ? (isDarkMode ? 'bg-primary/10 border-primary/40' : 'bg-primary-container/30 border-primary-container') : (isDarkMode ? 'bg-[#0f172a] border-dashed border-gray-700 opacity-50' : 'bg-surface-variant border-dashed border-gray-300 opacity-50')}`}>
-                    <span className={`text-[10px] font-black uppercase mb-2 ${isDarkMode ? 'text-primary' : 'text-primary/60'}`}>Sensor {i+1}</span>
-                    <span className={`text-3xl font-black ${isDarkMode ? 'text-white' : 'text-primary-onContainer'}`}>{val > 0 ? `${val}%` : '--'}</span>
-                    <div className={`mt-3 w-full rounded-full h-1.5 overflow-hidden ${isDarkMode ? 'bg-gray-800' : 'bg-white/50'}`}>
+                  <div key={i} className={`flex flex-col items-center justify-center p-6 rounded-google border-2 transition-all ${val > 0 ? 'bg-primary-container/30 border-primary-container' : 'bg-surface-variant border-dashed border-gray-300 opacity-50'}`}>
+                    <span className="text-[10px] font-black text-primary/60 uppercase mb-2">Sensor {i+1}</span>
+                    <span className="text-3xl font-black text-primary-onContainer">{val > 0 ? `${val}%` : '--'}</span>
+                    <div className="mt-3 w-full bg-white/50 rounded-full h-1.5 overflow-hidden">
                       <div className="bg-primary h-full transition-all duration-1000" style={{ width: `${val}%` }}></div>
                     </div>
                   </div>
@@ -299,17 +286,17 @@ const Dashboard = () => {
           <div className="space-y-8">
             {/* Control Panel - ONLY FOR ADMIN */}
             {isAdmin ? (
-              <div className={`transition-all duration-500 p-8 rounded-google shadow-md border ${isDarkMode ? 'bg-[#1e293b] border-[#334155]' : 'bg-surface border-primary/10'} ${!isOnline ? 'grayscale opacity-70 pointer-events-none' : ''}`}>
-                <h3 className={`text-xl font-black mb-8 flex items-center gap-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <div className={`bg-surface p-8 rounded-google shadow-md border border-primary/10 transition-all ${!isOnline ? 'grayscale opacity-70 pointer-events-none' : ''}`}>
+                <h3 className="text-xl font-black text-gray-900 mb-8 flex items-center gap-3">
                   <Zap className="text-yellow-500 h-6 w-6" /> Kontrol Panel
                 </h3>
                 
                 <div className="space-y-6">
                   {/* Manual Toggle */}
-                  <div className={`p-6 rounded-google border flex items-center justify-between shadow-sm ${isDarkMode ? 'bg-[#0f172a] border-[#334155]' : 'bg-surface-variant border-surface-outline'}`}>
+                  <div className="bg-surface-variant p-6 rounded-google border border-surface-outline flex items-center justify-between shadow-sm">
                     <div>
-                      <p className={`font-black text-sm ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>Mode Siram Manual</p>
-                      <p className="text-[10px] font-bold text-[#1a73e8] uppercase mt-1 tracking-wider">Pengkondisian Aman</p>
+                      <p className="font-black text-gray-900 text-base">Mode Siram Manual</p>
+                      <p className="text-[10px] font-bold text-[#1a73e8] uppercase mt-1 tracking-wider">Pengkondisian Aman (Otomatis Berhenti)</p>
                     </div>
                     <button 
                       onClick={() => updatePump(data.pump_status === 'ON' ? 'OFF' : 'ON')} 
@@ -320,10 +307,10 @@ const Dashboard = () => {
                   </div>
 
                   {/* PWM Slider */}
-                  <div className={`p-5 rounded-google border ${isDarkMode ? 'bg-[#0f172a] border-[#334155]' : 'bg-surface-variant border-surface-outline'}`}>
+                  <div className="bg-surface-variant p-5 rounded-google border border-surface-outline">
                     <div className="flex justify-between items-center mb-4">
-                      <p className={`font-black text-sm ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>Intensitas Kabut</p>
-                      <span className={`px-3 py-1 rounded-full text-xs font-black border ${isDarkMode ? 'bg-primary/20 text-primary border-primary/30' : 'bg-white text-primary border-primary-container'}`}>{localPressure}%</span>
+                      <p className="font-black text-gray-900 text-sm">Intensitas Kabut</p>
+                      <span className="bg-white px-3 py-1 rounded-full text-xs font-black text-primary border border-primary-container">{localPressure}%</span>
                     </div>
                     <input 
                       type="range" min="0" max="100" 
@@ -331,29 +318,31 @@ const Dashboard = () => {
                       onChange={(e) => setLocalPressure(e.target.value)}
                       onMouseUp={() => savePressure()}
                       onTouchEnd={() => savePressure()}
-                      className="w-full h-3 bg-gray-300 rounded-full appearance-none cursor-pointer border border-surface-outline accent-primary" 
+                      className="w-full h-3 bg-white rounded-full appearance-none cursor-pointer border border-surface-outline accent-primary" 
                     />
+                    <div className="flex justify-between mt-2 px-1 text-[9px] font-bold text-gray-400 uppercase tracking-widest">
+                      <span>Lemah</span>
+                      <span>Sangat Kuat</span>
+                    </div>
                   </div>
 
                   {/* Threshold Controls */}
-                  <div className={`p-5 rounded-google border ${isDarkMode ? 'bg-[#0f172a] border-primary/40' : 'bg-primary-container/30 border-primary-container'}`}>
-                    <p className={`font-black text-sm mb-5 text-center uppercase tracking-widest ${isDarkMode ? 'text-primary' : 'text-gray-900'}`}>Target Kelembaban</p>
+                  <div className="bg-primary-container/30 p-5 rounded-google border border-primary-container">
+                    <p className="font-black text-gray-900 text-sm mb-5 text-center uppercase tracking-widest">Target Kelembaban</p>
                     <div className="flex items-center justify-between gap-4">
                       <ThresholdControl 
                         label="MIN" 
                         value={localLow} 
-                        dark={isDarkMode}
                         onChange={(newVal) => {
                           setLocalLow(newVal);
                           saveThresholds(newVal, localHigh);
                         }} 
                         color="error" 
                       />
-                      <div className={`h-8 w-0.5 rounded-full ${isDarkMode ? 'bg-primary/30' : 'bg-primary-container'}`}></div>
+                      <div className="h-8 w-0.5 bg-primary-container rounded-full"></div>
                       <ThresholdControl 
                         label="MAX" 
                         value={localHigh} 
-                        dark={isDarkMode}
                         onChange={(newVal) => {
                           setLocalHigh(newVal);
                           saveThresholds(localLow, newVal);
@@ -361,28 +350,34 @@ const Dashboard = () => {
                         color="secondary" 
                       />
                     </div>
+                    <div className="mt-4 text-center">
+                      <span className="text-[10px] font-bold text-primary/60 uppercase animate-pulse">Auto-saving...</span>
+                    </div>
                   </div>
                 </div>
               </div>
             ) : (
-              <div className={`p-8 rounded-google shadow-md border text-center animate-bounce-in transition-all duration-500 ${isDarkMode ? 'bg-[#1e293b] border-[#334155]' : 'bg-white border-secondary-container'}`}>
+              <div className="bg-white p-8 rounded-google shadow-md border border-secondary-container text-center animate-bounce-in">
                 <div className="bg-secondary-container/50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
                   <CheckCircle2 className="text-secondary h-8 w-8" />
                 </div>
-                <h3 className={`text-lg font-black mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Akses Pemantau</h3>
-                <p className={`text-xs leading-relaxed font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                <h3 className="text-lg font-black text-gray-900 mb-2">Akses Pemantau</h3>
+                <p className="text-xs text-gray-500 leading-relaxed font-medium">
                   Selamat Datang! Anda masuk sebagai pemantau kelompok tani. Dashboard ini menampilkan kondisi tanaman G0 secara real-time.
                 </p>
+                <div className="mt-6 p-4 bg-surface-variant rounded-2xl text-[10px] font-black text-secondary uppercase tracking-widest">
+                  Kontrol Otomatis Aktif
+                </div>
               </div>
             )}
 
             {/* Quick Status */}
-            <div className={`p-6 rounded-google border border-dashed ${isDarkMode ? 'bg-secondary-container/5 border-secondary-container/30' : 'bg-secondary-container/20 border-secondary-container'}`}>
+            <div className="bg-secondary-container/20 p-6 rounded-google border border-secondary-container border-dashed">
                <div className="flex items-center gap-3 mb-2">
                  <CheckCircle2 className="text-secondary h-5 w-5" />
-                 <p className={`text-xs font-black uppercase tracking-widest ${isDarkMode ? 'text-secondary' : 'text-secondary-onContainer'}`}>Optimal Range</p>
+                 <p className="text-xs font-black text-secondary-onContainer uppercase tracking-widest">Optimal Range</p>
                </div>
-               <p className={`text-[10px] leading-relaxed font-medium ${isDarkMode ? 'text-gray-400' : 'text-secondary-onContainer/70'}`}>
+               <p className="text-[10px] text-secondary-onContainer/70 leading-relaxed font-medium">
                  Trichoderma sp. tumbuh optimal pada kelembaban 60-80%. Pastikan target alat berada dalam rentang ini.
                </p>
             </div>
@@ -393,15 +388,15 @@ const Dashboard = () => {
   );
 };
 
-const StatCard = ({ label, value, icon, active = false, color = 'primary', dark = false }) => (
-  <div className={`p-6 rounded-google border transition-all duration-500 shadow-xl ${dark ? (active ? 'bg-[#1e293b] border-yellow-500 ring-yellow-500/20' : 'bg-[#1e293b] border-[#334155] ring-transparent') : (active ? 'bg-yellow-50/50 border-yellow-400 ring-yellow-400/20 shadow-yellow-100' : 'bg-surface border-surface-outline shadow-sm ring-transparent')}`}>
-    <div className={`w-12 h-12 rounded-2xl mb-4 flex items-center justify-center ${active ? 'bg-yellow-100/20' : (dark ? 'bg-[#0f172a]' : `bg-${color}-container/50`)}`}>{icon}</div>
+const StatCard = ({ label, value, icon, active = false, color = 'primary' }) => (
+  <div className={`bg-surface p-6 rounded-google border transition-all ${active ? 'border-yellow-400 bg-yellow-50/50 shadow-xl shadow-yellow-100 ring-2 ring-yellow-400/20' : 'border-surface-outline shadow-sm hover:border-primary/30'}`}>
+    <div className={`w-12 h-12 rounded-2xl mb-4 flex items-center justify-center ${active ? 'bg-yellow-100' : `bg-${color}-container/50`}`}>{icon}</div>
     <p className="text-[10px] text-gray-400 font-black uppercase tracking-[0.2em]">{label}</p>
-    <p className={`text-2xl font-black mt-1 ${active ? 'text-yellow-500' : (dark ? 'text-white' : 'text-gray-900')}`}>{value}</p>
+    <p className={`text-2xl font-black mt-1 ${active ? 'text-yellow-700' : 'text-gray-900'}`}>{value}</p>
   </div>
 );
 
-const ThresholdControl = ({ label, value, onChange, color, dark = false }) => (
+const ThresholdControl = ({ label, value, onChange, color }) => (
   <div className="flex flex-col items-center gap-2">
     <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">{label}</span>
     <div className="flex items-center gap-2">
@@ -410,17 +405,17 @@ const ThresholdControl = ({ label, value, onChange, color, dark = false }) => (
           const next = Math.max(0, parseInt(value)-1);
           onChange(next);
         }} 
-        className={`p-1.5 rounded-full border transition-all active:scale-90 ${dark ? 'bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700' : 'bg-white border-surface-outline text-gray-600 hover:bg-gray-100'}`}
+        className="p-1.5 bg-white rounded-full border border-surface-outline text-gray-600 hover:bg-gray-100 active:scale-90 transition-all"
       >
         <Minus className="h-3 w-3" />
       </button>
-      <span className={`text-xl font-black w-10 text-center ${dark ? 'text-white' : 'text-black'}`}>{value}</span>
+      <span className="text-xl font-black w-10 text-center">{value}</span>
       <button 
         onClick={() => {
           const next = Math.min(100, parseInt(value)+1);
           onChange(next);
         }} 
-        className={`p-1.5 rounded-full border transition-all active:scale-90 ${dark ? 'bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700' : 'bg-white border-surface-outline text-gray-600 hover:bg-gray-100'}`}
+        className="p-1.5 bg-white rounded-full border border-surface-outline text-gray-600 hover:bg-gray-100 active:scale-90 transition-all"
       >
         <Plus className="h-3 w-3" />
       </button>

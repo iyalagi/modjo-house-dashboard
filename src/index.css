@@ -12,10 +12,14 @@ body {
   color: #111827;
 }
 
-/* KISS: Kursor hitam pekat agar pasti terlihat */
+/* Memastikan kursor pengetikan (caret) terlihat jelas */
 input, textarea {
-  caret-color: #000000 !important;
-  color: #000000 !important;
+  caret-color: #1a73e8 !important;
+}
+
+/* Memastikan kursor tangan muncul pada semua tombol */
+button, a, input[type="range"], input[type="button"], input[type="submit"] {
+  cursor: pointer !important;
 }
 
 .bg-grid-pattern {
@@ -29,28 +33,35 @@ input, textarea {
 }
 
 @keyframes dashboardReveal {
-  0% { opacity: 0; transform: translateY(5px); }
-  100% { opacity: 1; transform: translateY(0); }
+  0% {
+    opacity: 0;
+    transform: scale(0.98) translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 .animate-dashboard-reveal {
-  animation: dashboardReveal 0.4s ease-out forwards;
+  animation: dashboardReveal 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 @keyframes bounce-in {
-  0% { transform: scale(0.95); opacity: 0; }
+  0% { transform: scale(0.9); opacity: 0; }
+  70% { transform: scale(1.02); }
   100% { transform: scale(1); opacity: 1; }
 }
 
 .animate-bounce-in {
-  animation: bounce-in 0.3s ease-out forwards;
+  animation: bounce-in 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
 }
 
 @keyframes pulse-soft {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
+  50% { opacity: 0.5; }
 }
 
 .animate-pulse-soft {
-  animation: pulse-soft 2s infinite;
+  animation: pulse-soft 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
