@@ -292,9 +292,8 @@ const Dashboard = () => {
                   <div className="bg-surface-variant p-5 rounded-google border border-surface-outline flex items-center justify-between">
                     <div>
                       <p className="font-black text-gray-900 text-sm">Mode Siram Manual</p>
-                      <p className="text-[10px] font-bold text-gray-500 uppercase mt-0.5">Target: 75% Otomatis</p>
-                    </div>
-                    <button 
+                      <p className="text-[10px] font-bold text-blue-600 uppercase mt-0.5 tracking-tighter">Pengkondisian Aman (Otomatis Berhenti)</p>
+                    </div>                    <button 
                       onClick={() => updatePump(data.pump_status === 'ON' ? 'OFF' : 'ON')} 
                       className={`w-14 h-8 rounded-full transition-all relative ${data.pump_status === 'ON' ? 'bg-primary shadow-inner shadow-primary-onContainer/20' : 'bg-gray-300'}`}
                     >
