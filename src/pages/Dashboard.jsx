@@ -11,7 +11,13 @@ import {
   Plus,
   Minus,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Settings,
+  Wifi,
+  ChevronRight,
+  ShieldCheck,
+  RefreshCw,
+  X
 } from 'lucide-react';
 import HumidityChart from '../components/HumidityChart';
 import StatusAlert from '../components/StatusAlert';
@@ -20,7 +26,8 @@ import SyncLoader from '../components/SyncLoader';
 
 const checkOnlineStatus = (lastSeen) => {
   if (!lastSeen) return false;
-  return (new Date() - new Date(lastSeen)) / 1000 < 600;
+  // Perpendek durasi deteksi offline jadi 60 detik agar lebih responsif
+  return (new Date() - new Date(lastSeen)) / 1000 < 60;
 };
 
 const Dashboard = () => {
@@ -30,6 +37,7 @@ const Dashboard = () => {
   const [timeframe, setTimeframe] = useState('30m');
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
   const [userEmail, setUserEmail] = useState('');
+  const [showWifiModal, setShowWifiModal] = useState(false);
 
   const [localLow, setLocalLow] = useState(null);
   const [localHigh, setLocalHigh] = useState(null);
@@ -187,6 +195,55 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-grid-pattern pb-12 font-sans selection:bg-primary-container">
+      {/* WiFi Setup Modal */}
+      {showWifiModal && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="bg-white w-full max-w-md rounded-[32px] overflow-hidden shadow-2xl animate-scale-in">
+            <div className="bg-primary p-8 text-white relative">
+              <button onClick={() => setShowWifiModal(false)} className="absolute top-6 right-6 p-2 hover:bg-white/20 rounded-full transition-all">
+                <X className="h-6 w-6" />
+              </button>
+              <div className="bg-white/20 w-16 h-16 rounded-3xl flex items-center justify-center mb-4">
+                <Wifi className="h-8 w-8" />
+              </div>
+              <h2 className="text-2xl font-black tracking-tight">Pengaturan WiFi</h2>
+              <p className="text-white/70 text-sm font-bold uppercase tracking-widest mt-1">Konfigurasi Jaringan Alat</p>
+            </div>
+            
+            <div className="p-8 space-y-6">
+              <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-primary mt-0.5" />
+                <p className="text-xs text-blue-800 font-medium leading-relaxed">
+                  Gunakan fitur ini untuk memindahkan alat ke jaringan WiFi lain. Setelah direset, alat akan membuat hotspot <b>Modjo-Smart-Config</b>.
+                </p>
+              </div>
+
+              <button
+                disabled={!isOnline}
+                onClick={async () => {
+                  if (window.confirm("Yakin ingin mereset WiFi? Alat akan masuk ke mode Hotspot.")) {
+                    const { error } = await supabase.from('device_controls').update({ reset_wifi_req: true }).eq('id', 1);
+                    if (!error) {
+                      showToast("Alat sedang mereset...");
+                      setShowWifiModal(false);
+                    }
+                  }
+                }}
+                className={`w-full py-4 rounded-2xl font-black text-sm uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 ${isOnline ? 'bg-red-600 text-white shadow-lg shadow-red-200 hover:bg-red-700 active:scale-95' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
+              >
+                <RefreshCw className="h-5 w-5" /> Reset & Cari WiFi Baru
+              </button>
+              
+              {!isOnline && (
+                <p className="text-[10px] text-red-500 font-black text-center uppercase tracking-widest animate-pulse">
+                  Alat harus ONLINE untuk melakukan reset
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Toast Notification - STRICTLY TOP CENTER */}
       {toast.show && (
         <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-3 px-6 py-3 rounded-full shadow-[0_10px_40px_rgba(0,0,0,0.2)] animate-bounce-in bg-white border-2 border-surface-outline min-w-[320px] justify-center">
@@ -216,6 +273,11 @@ const Dashboard = () => {
         </div>
 
         <div className="flex items-center gap-3">
+          {isAdmin && (
+            <button onClick={() => setShowWifiModal(true)} className="p-2.5 hover:bg-white/10 rounded-full transition-all text-white border border-white/10">
+              <Settings className="h-5 w-5" />
+            </button>
+          )}
           <button onClick={() => refreshData(true)} disabled={refreshing} className="p-2.5 hover:bg-white/10 rounded-full transition-all text-white border border-white/10">
             <SyncLoader />
           </button>
@@ -324,24 +386,6 @@ const Dashboard = () => {
                       <span>Lemah</span>
                       <span>Sangat Kuat</span>
                     </div>
-                  </div>
-
-                  {/* WiFi Reset Button */}
-                  <div className="pt-2 border-t border-surface-outline">
-                    <button
-                      onClick={async () => {
-                        if (window.confirm("Apakah Anda yakin ingin mereset koneksi WiFi alat? Alat akan masuk ke mode Hotspot (Modjo-Smart-Config).")) {
-                          setIsUpdating(true);
-                          const { error } = await supabase.from('device_controls').update({ reset_wifi_req: true }).eq('id', 1);
-                          if (!error) showToast("Perintah Reset Terkirim!");
-                          else showToast("Gagal kirim perintah", "error");
-                          setIsUpdating(false);
-                        }
-                      }}
-                      className="w-full py-3 bg-red-50 hover:bg-red-100 text-red-600 rounded-2xl border-2 border-dashed border-red-200 text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2"
-                    >
-                      <Wind className="h-3 w-3 rotate-180" /> Reset Koneksi WiFi Alat
-                    </button>
                   </div>
 
                   {/* Threshold Controls */}
