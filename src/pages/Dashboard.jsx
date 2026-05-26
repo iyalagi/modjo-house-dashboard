@@ -1,17 +1,17 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
-import { 
-  Droplets, 
-  Wind, 
-  Zap, 
-  Clock, 
-  LogOut, 
-  Calendar, 
-  Activity, 
-  Plus, 
-  Minus, 
-  CheckCircle2, 
-  AlertCircle 
+import {
+  Droplets,
+  Wind,
+  Zap,
+  Clock,
+  LogOut,
+  Calendar,
+  Activity,
+  Plus,
+  Minus,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
 import HumidityChart from '../components/HumidityChart';
 import StatusAlert from '../components/StatusAlert';
@@ -20,17 +20,17 @@ import SyncLoader from '../components/SyncLoader';
 
 const checkOnlineStatus = (lastSeen) => {
   if (!lastSeen) return false;
-  return (new Date() - new Date(lastSeen)) / 1000 < 600; 
+  return (new Date() - new Date(lastSeen)) / 1000 < 600;
 };
 
 const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [isOnline, setIsOnline] = useState(false);
-  const [timeframe, setTimeframe] = useState('30m'); 
+  const [timeframe, setTimeframe] = useState('30m');
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
   const [userEmail, setUserEmail] = useState('');
-  
+
   const [localLow, setLocalLow] = useState(null);
   const [localHigh, setLocalHigh] = useState(null);
   const [localPressure, setLocalPressure] = useState(null);
@@ -49,7 +49,7 @@ const Dashboard = () => {
     humidity_high: 80,
     last_seen: null,
     history: [],
-    sensor_nodes: [0, 0, 0, 0] 
+    sensor_nodes: [0, 0, 0, 0]
   });
 
   const showToast = (message, type = 'success') => {
@@ -70,9 +70,9 @@ const Dashboard = () => {
       let timeFilter;
       let groupMinutes = 1;
 
-      switch(timeframe) {
+      switch (timeframe) {
         case '30m': timeFilter = new Date(now - 30 * 60 * 1000); break;
-        case '1h':  timeFilter = new Date(now - 60 * 60 * 1000); break;
+        case '1h': timeFilter = new Date(now - 60 * 60 * 1000); break;
         case '12h_week': timeFilter = new Date(now - 7 * 24 * 60 * 60 * 1000); groupMinutes = 720; break;
         case '24h_week': timeFilter = new Date(now - 7 * 24 * 60 * 60 * 1000); groupMinutes = 1440; break;
         default: timeFilter = new Date(now - 30 * 60 * 1000);
@@ -89,7 +89,7 @@ const Dashboard = () => {
       if (ctrl) {
         let processedHistory = [];
         let lastNodes = [0, 0, 0, 0];
-        
+
         if (rows && rows.length > 0) {
           const lastRow = rows[rows.length - 1];
           if (lastRow && lastRow.sensor_nodes) {
@@ -126,11 +126,11 @@ const Dashboard = () => {
           pump_status: rows && rows.length > 0 ? rows[rows.length - 1].pump_status : prev.pump_status,
           sensor_nodes: lastNodes
         }));
-        
+
         if (localLow === null) setLocalLow(ctrl.humidity_low);
         if (localHigh === null) setLocalHigh(ctrl.humidity_high);
         if (localPressure === null) setLocalPressure(ctrl.pump_pressure || 100);
-        
+
         setIsOnline(checkOnlineStatus(ctrl.last_seen));
       }
     } catch (e) { console.error(e); }
@@ -161,20 +161,20 @@ const Dashboard = () => {
   const saveThresholds = async (low, high) => {
     if (!isAdmin) return; // Proteksi tambahan
     setIsUpdating(true);
-    const { error } = await supabase.from('device_controls').update({ 
-      humidity_low: parseInt(low), 
-      humidity_high: parseInt(high) 
+    const { error } = await supabase.from('device_controls').update({
+      humidity_low: parseInt(low),
+      humidity_high: parseInt(high)
     }).eq('id', 1);
     if (error) showToast("Gagal sinkron target", "error");
     setIsUpdating(false);
   };
-  
+
   const savePressure = async (val) => {
     if (!isAdmin) return; // Proteksi tambahan
     const p = val !== undefined ? val : localPressure;
     setIsUpdating(true);
-    const { error } = await supabase.from('device_controls').update({ 
-      pump_pressure: parseInt(p) 
+    const { error } = await supabase.from('device_controls').update({
+      pump_pressure: parseInt(p)
     }).eq('id', 1);
     if (!error) {
       setLocalPressure(p);
@@ -214,7 +214,7 @@ const Dashboard = () => {
             </div>
           </div>
         </div>
-        
+
         <div className="flex items-center gap-3">
           <button onClick={() => refreshData(true)} disabled={refreshing} className="p-2.5 hover:bg-white/10 rounded-full transition-all text-white border border-white/10">
             <SyncLoader />
@@ -249,9 +249,9 @@ const Dashboard = () => {
                 </div>
                 <div className="flex bg-white p-1 rounded-full border border-surface-outline shadow-sm">
                   {['30m', '1h', '12h_week', '24h_week'].map(t => (
-                    <button 
-                      key={t} 
-                      onClick={() => setTimeframe(t)} 
+                    <button
+                      key={t}
+                      onClick={() => setTimeframe(t)}
                       className={`px-4 py-1.5 text-[10px] font-black rounded-full transition-all ${timeframe === t ? 'bg-[#1a73e8] text-white shadow-lg' : 'text-gray-500 hover:bg-gray-100 hover:text-[#1a73e8]'}`}
                     >
                       {t.replace('_week', '').toUpperCase()}
@@ -272,7 +272,7 @@ const Dashboard = () => {
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
                 {data.sensor_nodes.map((val, i) => (
                   <div key={i} className={`flex flex-col items-center justify-center p-6 rounded-google border-2 transition-all ${val > 0 ? 'bg-primary-container/30 border-primary-container' : 'bg-surface-variant border-dashed border-gray-300 opacity-50'}`}>
-                    <span className="text-[10px] font-black text-primary/60 uppercase mb-2">Sensor {i+1}</span>
+                    <span className="text-[10px] font-black text-primary/60 uppercase mb-2">Sensor {i + 1}</span>
                     <span className="text-3xl font-black text-primary-onContainer">{val > 0 ? `${val}%` : '--'}</span>
                     <div className="mt-3 w-full bg-white/50 rounded-full h-1.5 overflow-hidden">
                       <div className="bg-primary h-full transition-all duration-1000" style={{ width: `${val}%` }}></div>
@@ -290,7 +290,7 @@ const Dashboard = () => {
                 <h3 className="text-xl font-black text-gray-900 mb-8 flex items-center gap-3">
                   <Zap className="text-yellow-500 h-6 w-6" /> Kontrol Panel
                 </h3>
-                
+
                 <div className="space-y-6">
                   {/* Manual Toggle */}
                   <div className="bg-surface-variant p-6 rounded-google border border-surface-outline flex items-center justify-between shadow-sm">
@@ -298,8 +298,8 @@ const Dashboard = () => {
                       <p className="font-black text-gray-900 text-base">Mode Siram Manual</p>
                       <p className="text-[10px] font-bold text-[#1a73e8] uppercase mt-1 tracking-wider">Pengkondisian Aman (Otomatis Berhenti)</p>
                     </div>
-                    <button 
-                      onClick={() => updatePump(data.pump_status === 'ON' ? 'OFF' : 'ON')} 
+                    <button
+                      onClick={() => updatePump(data.pump_status === 'ON' ? 'OFF' : 'ON')}
                       className={`w-20 h-10 rounded-full transition-all relative flex items-center px-1 shadow-inner focus:outline-none focus:ring-4 focus:ring-[#1a73e8]/30 ${data.pump_status === 'ON' ? 'bg-[#1a73e8]' : 'bg-gray-400'}`}
                     >
                       <div className={`w-8 h-8 rounded-full bg-white shadow-md transition-all transform duration-300 ${data.pump_status === 'ON' ? 'translate-x-10' : 'translate-x-0'}`}></div>
@@ -312,13 +312,13 @@ const Dashboard = () => {
                       <p className="font-black text-gray-900 text-sm">Intensitas Kabut</p>
                       <span className="bg-white px-3 py-1 rounded-full text-xs font-black text-primary border border-primary-container">{localPressure}%</span>
                     </div>
-                    <input 
-                      type="range" min="0" max="100" 
-                      value={localPressure} 
+                    <input
+                      type="range" min="0" max="100"
+                      value={localPressure}
                       onChange={(e) => setLocalPressure(e.target.value)}
                       onMouseUp={() => savePressure()}
                       onTouchEnd={() => savePressure()}
-                      className="w-full h-3 bg-white rounded-full appearance-none cursor-pointer border border-surface-outline accent-primary" 
+                      className="w-full h-3 bg-white rounded-full appearance-none cursor-pointer border border-surface-outline accent-primary"
                     />
                     <div className="flex justify-between mt-2 px-1 text-[9px] font-bold text-gray-400 uppercase tracking-widest">
                       <span>Lemah</span>
@@ -326,28 +326,46 @@ const Dashboard = () => {
                     </div>
                   </div>
 
+                  {/* WiFi Reset Button */}
+                  <div className="pt-2 border-t border-surface-outline">
+                    <button
+                      onClick={async () => {
+                        if (window.confirm("Apakah Anda yakin ingin mereset koneksi WiFi alat? Alat akan masuk ke mode Hotspot (Modjo-Smart-Config).")) {
+                          setIsUpdating(true);
+                          const { error } = await supabase.from('device_controls').update({ reset_wifi_req: true }).eq('id', 1);
+                          if (!error) showToast("Perintah Reset Terkirim!");
+                          else showToast("Gagal kirim perintah", "error");
+                          setIsUpdating(false);
+                        }
+                      }}
+                      className="w-full py-3 bg-red-50 hover:bg-red-100 text-red-600 rounded-2xl border-2 border-dashed border-red-200 text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2"
+                    >
+                      <Wind className="h-3 w-3 rotate-180" /> Reset Koneksi WiFi Alat
+                    </button>
+                  </div>
+
                   {/* Threshold Controls */}
                   <div className="bg-primary-container/30 p-5 rounded-google border border-primary-container">
                     <p className="font-black text-gray-900 text-sm mb-5 text-center uppercase tracking-widest">Target Kelembaban</p>
                     <div className="flex items-center justify-between gap-4">
-                      <ThresholdControl 
-                        label="MIN" 
-                        value={localLow} 
+                      <ThresholdControl
+                        label="MIN"
+                        value={localLow}
                         onChange={(newVal) => {
                           setLocalLow(newVal);
                           saveThresholds(newVal, localHigh);
-                        }} 
-                        color="error" 
+                        }}
+                        color="error"
                       />
                       <div className="h-8 w-0.5 bg-primary-container rounded-full"></div>
-                      <ThresholdControl 
-                        label="MAX" 
-                        value={localHigh} 
+                      <ThresholdControl
+                        label="MAX"
+                        value={localHigh}
                         onChange={(newVal) => {
                           setLocalHigh(newVal);
                           saveThresholds(localLow, newVal);
-                        }} 
-                        color="secondary" 
+                        }}
+                        color="secondary"
                       />
                     </div>
                     <div className="mt-4 text-center">
@@ -373,13 +391,13 @@ const Dashboard = () => {
 
             {/* Quick Status */}
             <div className="bg-secondary-container/20 p-6 rounded-google border border-secondary-container border-dashed">
-               <div className="flex items-center gap-3 mb-2">
-                 <CheckCircle2 className="text-secondary h-5 w-5" />
-                 <p className="text-xs font-black text-secondary-onContainer uppercase tracking-widest">Optimal Range</p>
-               </div>
-               <p className="text-[10px] text-secondary-onContainer/70 leading-relaxed font-medium">
-                 Trichoderma sp. tumbuh optimal pada kelembaban 60-80%. Pastikan target alat berada dalam rentang ini.
-               </p>
+              <div className="flex items-center gap-3 mb-2">
+                <CheckCircle2 className="text-secondary h-5 w-5" />
+                <p className="text-xs font-black text-secondary-onContainer uppercase tracking-widest">Optimal Range</p>
+              </div>
+              <p className="text-[10px] text-secondary-onContainer/70 leading-relaxed font-medium">
+                Trichoderma sp. tumbuh optimal pada kelembaban 60-80%. Pastikan target alat berada dalam rentang ini.
+              </p>
             </div>
           </div>
         </div>
@@ -400,21 +418,21 @@ const ThresholdControl = ({ label, value, onChange, color }) => (
   <div className="flex flex-col items-center gap-2">
     <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">{label}</span>
     <div className="flex items-center gap-2">
-      <button 
+      <button
         onClick={() => {
-          const next = Math.max(0, parseInt(value)-1);
+          const next = Math.max(0, parseInt(value) - 1);
           onChange(next);
-        }} 
+        }}
         className="p-1.5 bg-white rounded-full border border-surface-outline text-gray-600 hover:bg-gray-100 active:scale-90 transition-all"
       >
         <Minus className="h-3 w-3" />
       </button>
       <span className="text-xl font-black w-10 text-center">{value}</span>
-      <button 
+      <button
         onClick={() => {
-          const next = Math.min(100, parseInt(value)+1);
+          const next = Math.min(100, parseInt(value) + 1);
           onChange(next);
-        }} 
+        }}
         className="p-1.5 bg-white rounded-full border border-surface-outline text-gray-600 hover:bg-gray-100 active:scale-90 transition-all"
       >
         <Plus className="h-3 w-3" />

@@ -4,15 +4,14 @@
 #include <ArduinoJson.h>
 #include <NTPClient.h>
 #include <WiFiUdp.h>
+#include <WiFiManager.h> // Tambahkan Library WiFiManager
 
 // ==========================================
-// 1. KONFIGURASI WIFI, SUPABASE & NTP
+// 1. KONFIGURASI SUPABASE & NTP
 // ==========================================
-const char* ssid       = "bonawifi"; // Sudah diupdate sesuai permintaan
-const char* password   = "enjel2702";
-
+// SSID dan Password dikelola otomatis oleh WiFiManager
 const char* supabase_url = "https://grrumsiewdegytaddsaj.supabase.co";
-const char* supabase_key ="ISI_KEY_SUPABASE_ANDA_DI_SINI";
+const char* supabase_key ="ISI_KEY_SUPABASE_ANDA_DI_SINI"; // Masukkan API Key Anda di sini
 
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "id.pool.ntp.org", 7 * 3600); // GMT+7 WIB
@@ -21,27 +20,30 @@ NTPClient timeClient(ntpUDP, "id.pool.ntp.org", 7 * 3600); // GMT+7 WIB
 // 2. PIN HARDWARE (DIRECT - TANPA MUX)
 // ==========================================
 const int mosfetPin = 26;
-
-// Pin Sensor Langsung (ADC1 - Aman WiFi)
 const int sensorPins[] = {34, 35, 32, 33};
 const int jumlahSensor = 4;
 
-// Konfigurasi PWM (ESP32 Core 3.0+)
-const int pwmFreq = 5000;
+const int pwmFreq = 20000; 
 const int pwmRes  = 8;
 
-// Kalibrasi Global (Final: 2700 / 680)
+// Kalibrasi Global
 int nilaiKering = 2700;
 int nilaiBasah  = 680;
 
+// Konfigurasi Stabilitas (Software Filter Anti-Floating)
+const int numSamples = 50; 
+const int maxJitterAllowed = 80; 
+
 // ==========================================
-// 3. VARIABEL KONTROL
+// 3. VARIABEL KONTROL & INTERVAL
 // ==========================================
-int sensorValues[7]; // Tetap 7 agar Dashboard tidak error
+int sensorValues[7];
 int currentHumidity = 0;
 int h_low = 60;
 int h_high = 80;
 bool manualOverride = false;
+bool systemError = false;
+
 String scheduledTime = "22:00";
 String scheduledMorningTime = "06:00";
 int pumpPressureTarget = 100;
@@ -56,33 +58,68 @@ const unsigned long intervalDataLog   = 60000;
 
 WiFiClientSecure client;
 
+// Fungsi Pembacaan Stabil dengan Analisis Getaran (Jitter)
+int bacaSensorStabil(int pin, int sensorIdx) {
+  long sum = 0;
+  int samples[numSamples];
+  
+  for (int i = 0; i < numSamples; i++) {
+    samples[i] = analogRead(pin);
+    sum += samples[i];
+    delay(1);
+  }
+  
+  int average = sum / numSamples;
+  
+  long totalVariance = 0;
+  for (int i = 0; i < numSamples; i++) {
+    totalVariance += abs(samples[i] - average);
+  }
+  int jitter = totalVariance / numSamples;
+
+  if (jitter > maxJitterAllowed || average > 3000 || average < 200) {
+    if (millis() % 5000 < 20) {
+      Serial.printf("[S%d OFF/JITTER: %d] ", sensorIdx + 1, jitter);
+    }
+    return nilaiKering; 
+  }
+  
+  return average;
+}
+
 // ==========================================
 // 4. SETUP
 // ==========================================
 void setup() {
   Serial.begin(115200);
-
-  // Setup PWM Pompa
   ledcAttach(mosfetPin, pwmFreq, pwmRes);
   ledcWrite(mosfetPin, 0);
 
-  // Setup Pin Sensor
   for (int i = 0; i < jumlahSensor; i++) {
     pinMode(sensorPins[i], INPUT);
   }
 
-  Serial.println("\n--- SISTEM SMART IRIGASI MODJO SMART (ESP32) ---");
-  WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
+  Serial.println("\n--- SISTEM SMART IRIGASI (WIFI MANAGER ACTIVE) ---");
+  
+  // LOGIKA WIFIMANAGER
+  WiFiManager wm;
+  
+  // Set timeout agar jika tidak diatur dalam 3 menit, dia restart (opsional)
+  wm.setConfigPortalTimeout(180);
+
+  // Membuat Access Point otomatis jika WiFi tidak ditemukan
+  // Nama AP: "Modjo-Smart-Config" tanpa password
+  if (!wm.autoConnect("Modjo-Smart-Config")) {
+    Serial.println("Gagal konek & timeout portal.");
+    ESP.restart();
   }
-  Serial.println("\nWiFi Terhubung!");
+
+  Serial.println("\nWiFi Terhubung via WiFiManager!");
+  Serial.print("IP Address: ");
+  Serial.println(WiFi.localIP());
 
   client.setInsecure();
   timeClient.begin();
-
-  // JALANKAN CLEANUP SAAT STARTUP (PENTING!)
   jalankanCleanup();
 }
 
@@ -90,9 +127,9 @@ void setup() {
 // 5. LOOP UTAMA
 // ==========================================
 void loop() {
+  // WiFiManager menangani koneksi ulang secara otomatis di latar belakang
   if (WiFi.status() != WL_CONNECTED) {
     ledcWrite(mosfetPin, 0);
-    WiFi.begin(ssid, password);
     delay(1000);
     return;
   }
@@ -100,37 +137,44 @@ void loop() {
   timeClient.update();
   unsigned long currentMillis = millis();
 
-  // A. Baca 4 Sensor
   long totalPercent = 0;
+  int validSensors = 0;
+
   for (int i = 0; i < jumlahSensor; i++) {
-    int raw = analogRead(sensorPins[i]);
+    int raw = bacaSensorStabil(sensorPins[i], i);
     int percent = map(raw, nilaiKering, nilaiBasah, 0, 100);
     percent = constrain(percent, 0, 100);
 
-    sensorValues[i] = percent;
-    totalPercent += percent;
+    if (raw > (nilaiKering - 50)) percent = 0;
 
-    Serial.printf("S%d:%d%%(%d) | ", i + 1, percent, raw);
+    sensorValues[i] = percent;
+    if (percent > 0) {
+      totalPercent += percent;
+      validSensors++;
+    }
   }
 
-  // Kosongkan sensor 5, 6, 7
+  if (validSensors == 0) {
+    currentHumidity = 0;
+    systemError = true;
+  } else {
+    currentHumidity = totalPercent / validSensors;
+    systemError = false;
+  }
+
   for (int i = jumlahSensor; i < 7; i++) sensorValues[i] = 0;
-
-  currentHumidity = totalPercent / jumlahSensor;
-  Serial.printf("AVG: %d%%\n", currentHumidity);
-
-  // B. Sinkronisasi Database
+  
   if (currentMillis - lastPumpCheck >= intervalPumpCheck) {
     lastPumpCheck = currentMillis;
+    Serial.printf("AVG: %d%% | Sensors Active: %d\n", currentHumidity, validSensors);
     syncWithDatabase();
   }
 
-  // C. Logika Kendali Pompa
   String currentTime = timeClient.getFormattedTime().substring(0, 5);
   bool finalPumpState = false;
 
-  if (currentHumidity <= 0) {
-    finalPumpState = false;
+  if (currentHumidity <= 0 || systemError) {
+    finalPumpState = false; 
     if (manualOverride) resetCorMode();
   } else if (manualOverride) {
     finalPumpState = (currentHumidity < 75);
@@ -143,7 +187,6 @@ void loop() {
     else finalPumpState = (ledcRead(mosfetPin) > 0);
   }
 
-  // Eksekusi Pompa
   if (finalPumpState) {
     int dutyCycle = map(pumpPressureTarget, 0, 100, 0, 255);
     ledcWrite(mosfetPin, dutyCycle);
@@ -151,7 +194,6 @@ void loop() {
     ledcWrite(mosfetPin, 0);
   }
 
-  // D. Heartbeat & Logging
   if (currentMillis - lastHeartbeat >= intervalHeartbeat) {
     lastHeartbeat = currentMillis;
     kirimHeartbeat();
@@ -162,9 +204,7 @@ void loop() {
   }
 }
 
-// ==========================================
-// 6. FUNGSI KOMUNIKASI SUPABASE
-// ==========================================
+// ... (Sisa fungsi komunikasi tetap sama)
 void resetCorMode() {
   manualOverride = false;
   HTTPClient http;
@@ -197,9 +237,32 @@ void syncWithDatabase() {
     String morningTime = doc[0]["misting_morning"];
     if (morningTime != "null") scheduledMorningTime = morningTime.substring(0, 5);
     if (doc[0].containsKey("pump_pressure")) pumpPressureTarget = doc[0]["pump_pressure"];
+
+    // LOGIKA RESET WIFI DARI WEB
+    bool resetWiFiReq = doc[0]["reset_wifi_req"];
+    if (resetWiFiReq) {
+      Serial.println("PERINTAH RESET WIFI DITERIMA!");
+
+      // 1. Kembalikan flag ke false di database agar tidak reset terus-menerus
+      HTTPClient httpReset;
+      String resetUrl = String(supabase_url) + "/rest/v1/device_controls?id=eq.1";
+      httpReset.begin(client, resetUrl);
+      httpReset.addHeader("apikey", supabase_key);
+      httpReset.addHeader("Authorization", "Bearer " + String(supabase_key));
+      httpReset.addHeader("Content-Type", "application/json");
+      httpReset.PATCH("{\"reset_wifi_req\": false}");
+      httpReset.end();
+
+      // 2. Hapus Setting WiFi & Restart
+      delay(1000);
+      WiFiManager wm;
+      wm.resetSettings(); 
+      ESP.restart();
+    }
   }
   http.end();
 }
+
 
 void kirimHeartbeat() {
   HTTPClient http;
@@ -219,15 +282,12 @@ void kirimDataSensor() {
   http.addHeader("apikey", supabase_key);
   http.addHeader("Authorization", "Bearer " + String(supabase_key));
   http.addHeader("Content-Type", "application/json");
-
   StaticJsonDocument<512> doc;
   doc["humidity"]    = currentHumidity;
   doc["pump_status"] = (ledcRead(mosfetPin) > 0) ? "ON" : "OFF";
   doc["pressure"]    = pumpPressureTarget;
-
   JsonArray individual = doc.createNestedArray("sensor_nodes");
   for (int i = 0; i < 7; i++) individual.add(sensorValues[i]);
-
   String jsonStr;
   serializeJson(doc, jsonStr);
   http.POST(jsonStr);
@@ -235,15 +295,12 @@ void kirimDataSensor() {
 }
 
 void jalankanCleanup() {
-  Serial.println("Menjalankan pembersihan database (Data > 8 hari)...");
   HTTPClient http;
   String url = String(supabase_url) + "/rest/v1/rpc/cleanup_old_data";
   http.begin(client, url);
   http.addHeader("apikey", supabase_key);
   http.addHeader("Authorization", "Bearer " + String(supabase_key));
   http.addHeader("Content-Type", "application/json");
-  int httpCode = http.POST("{}"); 
-  if (httpCode > 0) Serial.println("Cleanup berhasil dijalankan!");
-  else Serial.println("Cleanup gagal (Cek RPC di Supabase).");
+  http.POST("{}"); 
   http.end();
 }
