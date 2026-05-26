@@ -52,7 +52,7 @@ unsigned long lastHeartbeat = 0;
 unsigned long lastPumpCheck = 0;
 unsigned long lastDataLog   = 0;
 
-const unsigned long intervalHeartbeat = 30000;
+const unsigned long intervalHeartbeat = 3000; // Melapor setiap 3 detik agar Web tetap "Online"
 const unsigned long intervalPumpCheck = 3000;
 const unsigned long intervalDataLog   = 60000;
 
