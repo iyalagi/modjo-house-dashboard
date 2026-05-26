@@ -57,7 +57,8 @@ const Dashboard = () => {
     humidity_high: 80,
     last_seen: null,
     history: [],
-    sensor_nodes: [0, 0, 0, 0]
+    sensor_nodes: [0, 0, 0, 0],
+    wifi_rssi: -100
   });
 
   const showToast = (message, type = 'success') => {
@@ -97,11 +98,15 @@ const Dashboard = () => {
       if (ctrl) {
         let processedHistory = [];
         let lastNodes = [0, 0, 0, 0];
+        let lastRssi = -100;
 
         if (rows && rows.length > 0) {
           const lastRow = rows[rows.length - 1];
           if (lastRow && lastRow.sensor_nodes) {
             lastNodes = lastRow.sensor_nodes.slice(0, 4);
+          }
+          if (lastRow && lastRow.wifi_rssi) {
+            lastRssi = lastRow.wifi_rssi;
           }
 
           if (groupMinutes > 1) {
@@ -132,7 +137,8 @@ const Dashboard = () => {
           raw_rows: rows,
           humidity: processedHistory.length > 0 ? processedHistory[processedHistory.length - 1].val : prev.humidity,
           pump_status: rows && rows.length > 0 ? rows[rows.length - 1].pump_status : prev.pump_status,
-          sensor_nodes: lastNodes
+          sensor_nodes: lastNodes,
+          wifi_rssi: lastRssi
         }));
 
         if (localLow === null) setLocalLow(ctrl.humidity_low);
@@ -193,6 +199,14 @@ const Dashboard = () => {
 
   if (loading) return <PageLoader />;
 
+  // LOGIKA ICON WIFI (RSSI)
+  const getWifiIcon = (rssi) => {
+    if (!isOnline || rssi <= -100) return <Wifi className="text-gray-400 h-4 w-4" />;
+    if (rssi >= -60) return <Wifi className="text-[#34a853] h-4 w-4" />; // Kuat
+    if (rssi >= -80) return <Wifi className="text-yellow-500 h-4 w-4" />; // Sedang
+    return <Wifi className="text-red-500 h-4 w-4" />; // Lemah
+  };
+
   return (
     <div className="min-h-screen bg-grid-pattern pb-12 font-sans selection:bg-primary-container">
       {/* WiFi Setup Modal */}
@@ -211,32 +225,33 @@ const Dashboard = () => {
             </div>
             
             <div className="p-8 space-y-6">
-              <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 flex items-start gap-3">
-                <AlertCircle className="h-5 w-5 text-primary mt-0.5" />
-                <p className="text-xs text-blue-800 font-medium leading-relaxed">
-                  Gunakan fitur ini untuk memindahkan alat ke jaringan WiFi lain. Setelah direset, alat akan membuat hotspot <b>Modjo-Smart-Config</b>.
-                </p>
-              </div>
-
               <button
                 disabled={!isOnline}
                 onClick={async () => {
-                  if (window.confirm("Yakin ingin mereset WiFi? Alat akan masuk ke mode Hotspot.")) {
+                  if (window.confirm("Reset koneksi WiFi? Alat akan masuk ke mode Hotspot.")) {
                     const { error } = await supabase.from('device_controls').update({ reset_wifi_req: true }).eq('id', 1);
                     if (!error) {
-                      showToast("Alat sedang mereset...");
+                      showToast("Memproses Reset...");
                       setShowWifiModal(false);
                     }
                   }
                 }}
-                className={`w-full py-4 rounded-2xl font-black text-sm uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 ${isOnline ? 'bg-red-600 text-white shadow-lg shadow-red-200 hover:bg-red-700 active:scale-95' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
+                className={`w-full py-5 rounded-[24px] font-black text-sm uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 ${isOnline ? 'bg-red-600 text-white shadow-xl shadow-red-100 hover:bg-red-700 active:scale-95' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
               >
-                <RefreshCw className="h-5 w-5" /> Reset & Cari WiFi Baru
+                <RefreshCw className={`h-5 w-5 ${isUpdating ? 'animate-spin' : ''}`} /> 
+                Ganti Jaringan WiFi
               </button>
               
-              {!isOnline && (
-                <p className="text-[10px] text-red-500 font-black text-center uppercase tracking-widest animate-pulse">
-                  Alat harus ONLINE untuk melakukan reset
+              {!isOnline ? (
+                <div className="flex flex-col items-center gap-2">
+                  <div className="h-1.5 w-12 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="bg-red-500 h-full w-1/2 animate-shimmer"></div>
+                  </div>
+                  <p className="text-[10px] text-red-500 font-black uppercase tracking-[0.2em]">Sistem Sedang Offline</p>
+                </div>
+              ) : (
+                <p className="text-[9px] text-gray-400 font-bold text-center uppercase tracking-widest">
+                  Klik untuk masuk ke mode konfigurasi HP
                 </p>
               )}
             </div>
@@ -265,9 +280,15 @@ const Dashboard = () => {
             <h1 className="text-2xl font-black text-white tracking-tighter leading-none">
               Modjo <span className="text-[#d2e3fc]">Smart</span>
             </h1>
-            <div className="flex items-center gap-1.5 mt-1">
+            <div className="flex items-center gap-2 mt-1">
               <div className={`h-2 w-2 rounded-full ${isOnline ? 'bg-[#34a853] shadow-[0_0_8px_#34a853]' : 'bg-[#ea4335]'}`}></div>
               <span className="text-[10px] font-black text-white/90 uppercase tracking-widest">{isOnline ? 'Sistem Online' : 'Sistem Offline'}</span>
+              {isOnline && (
+                <div className="flex items-center gap-1 ml-1 pl-2 border-l border-white/20">
+                  {getWifiIcon(data.wifi_rssi)}
+                  <span className="text-[9px] font-bold text-white/70">{data.wifi_rssi} dBm</span>
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -282,17 +282,22 @@ void kirimDataSensor() {
   http.addHeader("apikey", supabase_key);
   http.addHeader("Authorization", "Bearer " + String(supabase_key));
   http.addHeader("Content-Type", "application/json");
+
   StaticJsonDocument<512> doc;
   doc["humidity"]    = currentHumidity;
   doc["pump_status"] = (ledcRead(mosfetPin) > 0) ? "ON" : "OFF";
   doc["pressure"]    = pumpPressureTarget;
+  doc["wifi_rssi"]   = WiFi.RSSI(); // Ambil kekuatan sinyal (dBm)
+
   JsonArray individual = doc.createNestedArray("sensor_nodes");
   for (int i = 0; i < 7; i++) individual.add(sensorValues[i]);
+
   String jsonStr;
   serializeJson(doc, jsonStr);
   http.POST(jsonStr);
   http.end();
 }
+
 
 void jalankanCleanup() {
   HTTPClient http;
