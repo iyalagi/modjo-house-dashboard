@@ -26,8 +26,8 @@ import SyncLoader from '../components/SyncLoader';
 
 const checkOnlineStatus = (lastSeen) => {
   if (!lastSeen) return false;
-  // Set ke 15 detik untuk toleransi lag internet
-  return (new Date() - new Date(lastSeen)) / 1000 < 15;
+  // Set ke 60 detik (Standar Stabil) agar tidak kelap-kelip karena lag internet
+  return (new Date() - new Date(lastSeen)) / 1000 < 60;
 };
 
 const Dashboard = () => {
