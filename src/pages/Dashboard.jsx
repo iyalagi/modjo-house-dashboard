@@ -250,7 +250,7 @@ const Dashboard = () => {
                   <p className="text-[10px] text-red-500 font-black uppercase tracking-[0.2em]">Sistem Sedang Offline</p>
                 </div>
               ) : (
-                <p className="text-[9px] text-gray-400 font-bold text-center uppercase tracking-widest">
+                <p className="text-[9px] text-red-400 font-bold text-center uppercase tracking-widest">
                   Klik untuk masuk ke mode konfigurasi HP
                 </p>
               )}
@@ -328,7 +328,7 @@ const Dashboard = () => {
                   <div className="bg-primary/10 p-2 rounded-xl">
                     <Activity className="h-5 w-5 text-primary" />
                   </div>
-                  <h3 className="text-sm font-bold text-gray-800 uppercase tracking-widest">Tren Real-time</h3>
+                  <h3 className="text-sm font-bold text-gray-800 uppercase tracking-widest"></h3>
                 </div>
                 <div className="flex bg-white p-1 rounded-full border border-surface-outline shadow-sm">
                   {['30m', '1h', '12h_week', '24h_week'].map(t => (
@@ -350,7 +350,7 @@ const Dashboard = () => {
             {/* Distribution Grid */}
             <div className="bg-surface p-8 rounded-google shadow-sm border border-surface-outline">
               <h3 className="text-xs font-bold text-gray-400 mb-6 flex items-center gap-2 uppercase tracking-[0.2em]">
-                <Droplets className="text-primary h-4 w-4" /> Distribusi 4 Sensor G0
+                <Droplets className="text-primary h-4 w-4" /> SENSOR YANG TERPASANG
               </h3>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
                 {data.sensor_nodes.map((val, i) => (
@@ -392,7 +392,7 @@ const Dashboard = () => {
                   {/* PWM Slider */}
                   <div className="bg-surface-variant p-5 rounded-google border border-surface-outline">
                     <div className="flex justify-between items-center mb-4">
-                      <p className="font-black text-gray-900 text-sm">Intensitas Kabut</p>
+                      <p className="font-black text-gray-900 text-sm">Tekanan Misting</p>
                       <span className="bg-white px-3 py-1 rounded-full text-xs font-black text-primary border border-primary-container">{localPressure}%</span>
                     </div>
                     <input
