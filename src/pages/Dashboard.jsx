@@ -26,8 +26,8 @@ import SyncLoader from '../components/SyncLoader';
 
 const checkOnlineStatus = (lastSeen) => {
   if (!lastSeen) return false;
-  // Perpendek durasi deteksi offline jadi 60 detik agar lebih responsif
-  return (new Date() - new Date(lastSeen)) / 1000 < 60;
+  // Set ke 7 detik agar tidak terlalu sensitif terhadap lag internet
+  return (new Date() - new Date(lastSeen)) / 1000 < 7;
 };
 
 const Dashboard = () => {
