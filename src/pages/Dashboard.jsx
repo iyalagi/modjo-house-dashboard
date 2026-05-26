@@ -214,8 +214,8 @@ const Dashboard = () => {
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
           <div className="bg-white w-full max-w-md rounded-[32px] overflow-hidden shadow-2xl animate-scale-in">
             <div className="bg-primary p-8 text-white relative">
-              <button onClick={() => setShowWifiModal(false)} className="absolute top-6 right-6 p-2 hover:bg-white/20 rounded-full transition-all">
-                <X className="h-6 w-6" />
+              <button onClick={() => setShowWifiModal(false)} className="absolute top-6 right-6 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-all">
+                <X className="h-6 w-6 text-red-500" />
               </button>
               <div className="bg-white/20 w-16 h-16 rounded-3xl flex items-center justify-center mb-4">
                 <Wifi className="h-8 w-8" />
