@@ -52,7 +52,7 @@ const Dashboard = () => {
     pump_status: 'OFF',
     pressure: 100,
     misting_schedule: '22:00',
-    misting_morning: '06:00',
+    misting_morning: '07:00',
     humidity_low: 60,
     humidity_high: 80,
     last_seen: null,
@@ -328,7 +328,7 @@ const Dashboard = () => {
                   <div className="bg-primary/10 p-2 rounded-xl">
                     <Activity className="h-5 w-5 text-primary" />
                   </div>
-                  <h3 className="text-sm font-bold text-gray-800 uppercase tracking-widest"></h3>
+                  <h3 className="text-sm font-bold text-gray-800 uppercase tracking-widest">Tren Real Time Kelembaban</h3>
                 </div>
                 <div className="flex bg-white p-1 rounded-full border border-surface-outline shadow-sm">
                   {['30m', '1h', '12h_week', '24h_week'].map(t => (

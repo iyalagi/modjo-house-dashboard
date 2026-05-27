@@ -26,8 +26,8 @@ const HumidityChart = ({ data, timeframe }) => {
         <div className="flex items-center gap-4">
           <div className="h-10 w-1 bg-blue-600 rounded-full"></div>
           <div>
-            <h3 className="text-base font-black text-gray-900 uppercase tracking-tighter">Histogram & Trend Line</h3>
-            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Kombinasi Data Historis</p>
+            <h3 className="text-base font-black text-gray-900 uppercase tracking-tighter">Tren Kelembaban</h3>
+            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Histogram & Trend Line</p>
           </div>
         </div>
         <div className="flex items-center gap-6">
