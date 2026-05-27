@@ -197,6 +197,41 @@ const Dashboard = () => {
     setIsUpdating(false);
   };
 
+  const downloadCSV = () => {
+    if (!data.raw_rows || data.raw_rows.length === 0) {
+      showToast("Tidak ada data untuk diunduh", "error");
+      return;
+    }
+
+    const headers = ["ID", "Waktu", "Kelembaban (%)", "Status Pompa", "Tekanan (%)", "Sensor 1", "Sensor 2", "Sensor 3", "Sensor 4", "WiFi RSSI"];
+    const csvRows = [
+      headers.join(","),
+      ...data.raw_rows.map(row => [
+        row.id,
+        new Date(row.created_at).toLocaleString(),
+        row.humidity,
+        row.pump_status,
+        row.pump_pressure || 0,
+        row.sensor_nodes ? row.sensor_nodes[0] : 0,
+        row.sensor_nodes ? row.sensor_nodes[1] : 0,
+        row.sensor_nodes ? row.sensor_nodes[2] : 0,
+        row.sensor_nodes ? row.sensor_nodes[3] : 0,
+        row.wifi_rssi || -100
+      ].join(","))
+    ].join("\n");
+
+    const blob = new Blob([csvRows], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.setAttribute('hidden', '');
+    a.setAttribute('href', url);
+    a.setAttribute('download', `data_sensor_${timeframe}.csv`);
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    showToast("Data CSV berhasil diunduh!");
+  };
+
   if (loading) return <PageLoader />;
 
   // LOGIKA ICON WIFI (RSSI)
@@ -299,8 +334,11 @@ const Dashboard = () => {
               <Settings className="h-5 w-5" />
             </button>
           )}
-          <button onClick={() => refreshData(true)} disabled={refreshing} className="p-2.5 hover:bg-white/10 rounded-full transition-all text-white border border-white/10">
-            <SyncLoader />
+          <button 
+            onClick={downloadCSV}
+            className="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-2.5 rounded-full text-white font-black text-xs transition-all border border-white/20 active:scale-95"
+          >
+            <Activity className="h-4 w-4" /> <span>UNDUH CSV</span>
           </button>
           <button onClick={handleLogout} className="flex items-center gap-2 bg-[#d93025] px-5 py-2.5 rounded-full text-white font-black text-xs hover:bg-[#b21f16] transition-all shadow-lg active:scale-95 border border-[#a50e0e]">
             <LogOut className="h-4 w-4" /> <span className="hidden sm:inline">KELUAR</span>
