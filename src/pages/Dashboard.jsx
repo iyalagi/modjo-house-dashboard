@@ -507,9 +507,3 @@ const ThresholdControl = ({ label, value, onChange, color }) => (
 );
 
 export default Dashboard;
-</button>
-    </div>
-  </div>
-);
-
-export default Dashboard;
