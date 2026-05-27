@@ -331,7 +331,7 @@ const Dashboard = () => {
                   <h3 className="text-sm font-bold text-gray-800 uppercase tracking-widest">Tren Real Time Kelembaban</h3>
                 </div>
                 <div className="flex bg-white p-1 rounded-full border border-surface-outline shadow-sm">
-                  {['30m', '1h', '12h_week', '24h_week'].map(t => (
+                  {['15m', '30m', '1h', '12h_week', '24h_week'].map(t => (
                     <button
                       key={t}
                       onClick={() => setTimeframe(t)}
@@ -502,6 +502,12 @@ const ThresholdControl = ({ label, value, onChange, color }) => (
       >
         <Plus className="h-3 w-3" />
       </button>
+    </div>
+  </div>
+);
+
+export default Dashboard;
+</button>
     </div>
   </div>
 );
