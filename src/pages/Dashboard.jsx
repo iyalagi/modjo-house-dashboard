@@ -206,18 +206,29 @@ const Dashboard = () => {
     const headers = ["ID", "Waktu", "Kelembaban (%)", "Status Pompa", "Tekanan (%)", "Sensor 1", "Sensor 2", "Sensor 3", "Sensor 4", "WiFi RSSI"];
     const csvRows = [
       headers.join(","),
-      ...data.raw_rows.map(row => [
-        row.id,
-        new Date(row.created_at).toLocaleString(),
-        row.humidity,
-        row.pump_status,
-        row.pump_pressure || 0,
-        row.sensor_nodes ? row.sensor_nodes[0] : 0,
-        row.sensor_nodes ? row.sensor_nodes[1] : 0,
-        row.sensor_nodes ? row.sensor_nodes[2] : 0,
-        row.sensor_nodes ? row.sensor_nodes[3] : 0,
-        row.wifi_rssi || -100
-      ].join(","))
+      ...data.raw_rows.map(row => {
+        let nodes = [0, 0, 0, 0];
+        try {
+          if (Array.isArray(row.sensor_nodes)) {
+            nodes = row.sensor_nodes;
+          } else if (typeof row.sensor_nodes === 'string') {
+            nodes = JSON.parse(row.sensor_nodes);
+          }
+        } catch (e) { console.error("Error parsing sensor_nodes for CSV", e); }
+        
+        return [
+          row.id,
+          `"${new Date(row.created_at).toLocaleString()}"`,
+          row.humidity,
+          row.pump_status,
+          row.pump_pressure || 0,
+          nodes[0] || 0,
+          nodes[1] || 0,
+          nodes[2] || 0,
+          nodes[3] || 0,
+          row.wifi_rssi || -100
+        ].join(",")
+      })
     ].join("\n");
 
     const blob = new Blob([csvRows], { type: 'text/csv' });
