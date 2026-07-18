@@ -192,7 +192,7 @@ const Dashboard = () => {
     }).eq('id', 1);
     if (!error) {
       setLocalPressure(p);
-      showToast("Intensitas diperbarui!");
+      showToast("Tekanan diperbarui!");
     }
     setIsUpdating(false);
   };
@@ -364,7 +364,7 @@ const Dashboard = () => {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
           <StatCard label="Kelembaban" value={`${data.humidity}%`} icon={<Wind className="text-primary h-6 w-6" />} color="primary" />
           <StatCard label="Pompa" value={data.pump_status} icon={<Zap className={`h-6 w-6 ${data.pump_status === 'ON' ? 'text-yellow-500 fill-yellow-500 animate-pulse' : 'text-gray-300'}`} />} active={data.pump_status === 'ON'} color="secondary" />
-          <StatCard label="Intensitas" value={`${data.pressure}%`} icon={<Droplets className="text-cyan-500 h-6 w-6" />} color="primary" />
+          <StatCard label="Tekanan" value={`${data.pressure}%`} icon={<Droplets className="text-cyan-500 h-6 w-6" />} color="primary" />
           <StatCard label="Jadwal" value={data.misting_schedule} icon={<Clock className="text-purple-500 h-6 w-6" />} color="primary" />
         </div>
 
