@@ -45,6 +45,9 @@ const Dashboard = () => {
   const [localPressure, setLocalPressure] = useState(null);
   const [isDraggingPressure, setIsDraggingPressure] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  // Simpan status pompa "optimistic" (dari klik tombol) + waktu klik-nya,
+  // supaya tampilan langsung responsif tanpa nunggu ESP32 lapor (bisa 60 detik).
+  const [pumpOverride, setPumpOverride] = useState(null); // { status: 'ON'|'OFF', at: Date }
 
   // LOGIKA ADMIN: Lebih fleksibel (mengabaikan huruf besar/kecil dan domain)
   const isAdmin = userEmail && userEmail.toLowerCase().includes('modjoadmin');
@@ -166,6 +169,14 @@ const Dashboard = () => {
           }
         }
 
+        const lastRow = rows && rows.length > 0 ? rows[rows.length - 1] : null;
+        // Kalau ada klik manual (pumpOverride) yang belum "dikonfirmasi" oleh
+        // data sensor yang lebih baru dari waktu klik, tetap pakai status optimistic.
+        // Begitu ESP32 sudah lapor data baru (created_at > waktu klik), pakai data asli.
+        const overrideStillPending = pumpOverride && (!lastRow || new Date(lastRow.created_at) < pumpOverride.at);
+
+        if (!overrideStillPending && pumpOverride) setPumpOverride(null);
+
         setData(prev => ({
           ...prev,
           last_seen: ctrl.last_seen,
@@ -177,7 +188,7 @@ const Dashboard = () => {
           history: processedHistory,
           raw_rows: rows,
           humidity: processedHistory.length > 0 ? processedHistory[processedHistory.length - 1].val : prev.humidity,
-          pump_status: rows && rows.length > 0 ? rows[rows.length - 1].pump_status : prev.pump_status,
+          pump_status: overrideStillPending ? pumpOverride.status : (lastRow ? lastRow.pump_status : prev.pump_status),
           sensor_nodes: lastNodes,
           wifi_rssi: lastRssi
         }));
@@ -192,7 +203,7 @@ const Dashboard = () => {
       }
     } catch (e) { console.error(e); }
     if (isManual) setTimeout(() => setRefreshing(false), 500);
-  }, [timeframe, localLow, localHigh, isDraggingPressure]);
+  }, [timeframe, localLow, localHigh, isDraggingPressure, pumpOverride]);
 
   useEffect(() => {
     refreshData().then(() => setLoading(false));
@@ -209,10 +220,26 @@ const Dashboard = () => {
 
   const updatePump = async (s) => {
     if (!isAdmin) return; // Proteksi tambahan
+    const previousStatus = data.pump_status;
+
+    // Optimistic update: langsung ubah tampilan toggle & status,
+    // tidak perlu nunggu ESP32 kirim data sensor (bisa sampai 60 detik).
+    // pumpOverride akan otomatis "lepas" begitu data asli dari ESP32 datang.
+    const clickTime = new Date();
+    setPumpOverride({ status: s, at: clickTime });
+    setData(prev => ({ ...prev, pump_status: s }));
     setIsUpdating(true);
+
     const { error } = await supabase.from('device_controls').update({ manual_pump_override: s === 'ON' }).eq('id', 1);
-    if (!error) showToast(`Pompa Manual: ${s}`);
-    else showToast("Gagal update pompa", "error");
+
+    if (!error) {
+      showToast(`Pompa Manual: ${s}`);
+    } else {
+      // Gagal simpan -> batalkan override & kembalikan tampilan
+      setPumpOverride(null);
+      setData(prev => ({ ...prev, pump_status: previousStatus }));
+      showToast("Gagal update pompa", "error");
+    }
     setIsUpdating(false);
   };
 
