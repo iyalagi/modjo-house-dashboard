@@ -39,9 +39,11 @@ const Dashboard = () => {
   const [userEmail, setUserEmail] = useState('');
   const [showWifiModal, setShowWifiModal] = useState(false);
 
+  const [now, setNow] = useState(new Date());
   const [localLow, setLocalLow] = useState(null);
   const [localHigh, setLocalHigh] = useState(null);
   const [localPressure, setLocalPressure] = useState(null);
+  const [isDraggingPressure, setIsDraggingPressure] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
 
   // LOGIKA ADMIN: Lebih fleksibel (mengabaikan huruf besar/kecil dan domain)
@@ -85,6 +87,24 @@ const Dashboard = () => {
     return isPeriodeMalam
       ? { label: 'Jadwal Pagi', value: data.misting_morning }
       : { label: 'Jadwal Malam', value: data.misting_schedule };
+  };
+
+  // Hitung sisa waktu (jam & menit) menuju jadwal misting berikutnya.
+  // targetTimeStr format "HH:MM". Kalau jam target sudah lewat hari ini,
+  // otomatis dianggap besok.
+  const getRemainingTime = (targetTimeStr) => {
+    const [h, m] = targetTimeStr.split(':').map(Number);
+    const target = new Date(now);
+    target.setHours(h, m, 0, 0);
+    if (target <= now) target.setDate(target.getDate() + 1);
+
+    const diffMs = target - now;
+    const diffMin = Math.floor(diffMs / 60000);
+    const hh = Math.floor(diffMin / 60);
+    const mm = diffMin % 60;
+
+    if (hh > 0) return `${hh}j ${mm}m lagi`;
+    return `${mm}m lagi`;
   };
 
   const handleLogout = async () => { await supabase.auth.signOut(); };
@@ -153,7 +173,7 @@ const Dashboard = () => {
           humidity_high: ctrl.humidity_high,
           misting_schedule: ctrl.misting_schedule?.substring(0, 5) || '22:00',
           misting_morning: ctrl.misting_morning?.substring(0, 5) || '07:00',
-          pressure: ctrl.pump_pressure || 100,
+          pressure: ctrl.pump_pressure ?? 100,
           history: processedHistory,
           raw_rows: rows,
           humidity: processedHistory.length > 0 ? processedHistory[processedHistory.length - 1].val : prev.humidity,
@@ -164,18 +184,21 @@ const Dashboard = () => {
 
         if (localLow === null) setLocalLow(ctrl.humidity_low);
         if (localHigh === null) setLocalHigh(ctrl.humidity_high);
-        if (localPressure === null) setLocalPressure(ctrl.pump_pressure || 100);
+        // Sinkronkan slider dengan nilai terbaru dari Supabase, KECUALI saat
+        // user sedang aktif menggeser slider (biar tidak "lompat" di tengah drag)
+        if (!isDraggingPressure) setLocalPressure(ctrl.pump_pressure ?? 100);
 
         setIsOnline(checkOnlineStatus(ctrl.last_seen));
       }
     } catch (e) { console.error(e); }
     if (isManual) setTimeout(() => setRefreshing(false), 500);
-  }, [timeframe, localLow, localHigh, localPressure]);
+  }, [timeframe, localLow, localHigh, isDraggingPressure]);
 
   useEffect(() => {
     refreshData().then(() => setLoading(false));
     const interval = setInterval(() => {
       setData(c => { setIsOnline(checkOnlineStatus(c.last_seen)); return c; });
+      setNow(new Date());
     }, 5000);
     const channel = supabase.channel('sync')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'sensor_data' }, () => refreshData())
@@ -394,11 +417,21 @@ const Dashboard = () => {
             <div className="space-y-1.5">
               <div className={`flex items-center justify-between px-2.5 py-1.5 rounded-xl transition-all ${getNextSchedule().label === 'Jadwal Malam' ? 'bg-purple-50 ring-1 ring-purple-300' : ''}`}>
                 <span className="text-[10px] font-black text-gray-500 uppercase tracking-wider">Malam</span>
-                <span className="text-sm font-black text-gray-900">{data.misting_schedule}</span>
+                <span className="text-right">
+                  <span className="block text-sm font-black text-gray-900">{data.misting_schedule}</span>
+                  {getNextSchedule().label === 'Jadwal Malam' && (
+                    <span className="block text-[9px] font-bold text-purple-500">{getRemainingTime(data.misting_schedule)}</span>
+                  )}
+                </span>
               </div>
               <div className={`flex items-center justify-between px-2.5 py-1.5 rounded-xl transition-all ${getNextSchedule().label === 'Jadwal Pagi' ? 'bg-purple-50 ring-1 ring-purple-300' : ''}`}>
                 <span className="text-[10px] font-black text-gray-500 uppercase tracking-wider">Pagi</span>
-                <span className="text-sm font-black text-gray-900">{data.misting_morning}</span>
+                <span className="text-right">
+                  <span className="block text-sm font-black text-gray-900">{data.misting_morning}</span>
+                  {getNextSchedule().label === 'Jadwal Pagi' && (
+                    <span className="block text-[9px] font-bold text-purple-500">{getRemainingTime(data.misting_morning)}</span>
+                  )}
+                </span>
               </div>
             </div>
           </div>
@@ -483,9 +516,11 @@ const Dashboard = () => {
                     <input
                       type="range" min="0" max="100"
                       value={localPressure}
+                      onMouseDown={() => setIsDraggingPressure(true)}
+                      onTouchStart={() => setIsDraggingPressure(true)}
                       onChange={(e) => setLocalPressure(e.target.value)}
-                      onMouseUp={() => savePressure()}
-                      onTouchEnd={() => savePressure()}
+                      onMouseUp={() => { savePressure(); setIsDraggingPressure(false); }}
+                      onTouchEnd={() => { savePressure(); setIsDraggingPressure(false); }}
                       className="w-full h-3 bg-white rounded-full appearance-none cursor-pointer border border-surface-outline accent-primary"
                     />
                     <div className="flex justify-between mt-2 px-1 text-[9px] font-bold text-gray-400 uppercase tracking-widest">
