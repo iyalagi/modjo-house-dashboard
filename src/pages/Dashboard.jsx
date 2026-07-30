@@ -1,23 +1,23 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import {
-  Droplets,
-  Wind,
-  Zap,
-  Clock,
-  LogOut,
-  Calendar,
-  Activity,
-  Plus,
-  Minus,
-  CheckCircle2,
-  AlertCircle,
-  Settings,
-  Wifi,
-  ChevronRight,
-  ShieldCheck,
-  RefreshCw,
-  X
+Droplets,
+Wind,
+Zap,
+Clock,
+LogOut,
+Calendar,
+Activity,
+Plus,
+Minus,
+CheckCircle2,
+AlertCircle,
+Settings,
+Wifi,
+ChevronRight,
+ShieldCheck,
+RefreshCw,
+X
 } from 'lucide-react';
 import HumidityChart from '../components/HumidityChart';
 import StatusAlert from '../components/StatusAlert';
@@ -386,7 +386,22 @@ const Dashboard = () => {
           <StatCard label="Kelembaban" value={`${data.humidity}%`} icon={<Wind className="text-primary h-6 w-6" />} color="primary" />
           <StatCard label="Pompa" value={data.pump_status} icon={<Zap className={`h-6 w-6 ${data.pump_status === 'ON' ? 'text-yellow-500 fill-yellow-500 animate-pulse' : 'text-gray-300'}`} />} active={data.pump_status === 'ON'} color="secondary" />
           <StatCard label="Tekanan" value={`${data.pressure}%`} icon={<Droplets className="text-cyan-500 h-6 w-6" />} color="primary" />
-          <StatCard label={getNextSchedule().label} value={getNextSchedule().value} icon={<Clock className="text-purple-500 h-6 w-6" />} color="primary" />
+          <div className="bg-surface p-6 rounded-google border border-surface-outline shadow-sm hover:border-primary/30 transition-all">
+            <div className="w-12 h-12 rounded-2xl mb-4 flex items-center justify-center bg-primary-container/50">
+              <Clock className="text-purple-500 h-6 w-6" />
+            </div>
+            <p className="text-[10px] text-gray-400 font-black uppercase tracking-[0.2em] mb-2">Jadwal Misting</p>
+            <div className="space-y-1.5">
+              <div className={`flex items-center justify-between px-2.5 py-1.5 rounded-xl transition-all ${getNextSchedule().label === 'Jadwal Malam' ? 'bg-purple-50 ring-1 ring-purple-300' : ''}`}>
+                <span className="text-[10px] font-black text-gray-500 uppercase tracking-wider">Malam</span>
+                <span className="text-sm font-black text-gray-900">{data.misting_schedule}</span>
+              </div>
+              <div className={`flex items-center justify-between px-2.5 py-1.5 rounded-xl transition-all ${getNextSchedule().label === 'Jadwal Pagi' ? 'bg-purple-50 ring-1 ring-purple-300' : ''}`}>
+                <span className="text-[10px] font-black text-gray-500 uppercase tracking-wider">Pagi</span>
+                <span className="text-sm font-black text-gray-900">{data.misting_morning}</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
