@@ -66,6 +66,27 @@ const Dashboard = () => {
     setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
   };
 
+  // Menentukan jadwal misting mana yang relevan ditampilkan berdasarkan jam sekarang.
+  // Misal misting_schedule = 22:00 (malam) & misting_morning = 07:00 (pagi):
+  // - Dari jam 22:00 s/d sebelum 07:00 keesokan harinya -> tampilkan "Jadwal Pagi: 07:00"
+  // - Dari jam 07:00 s/d sebelum 22:00 -> tampilkan "Jadwal Malam: 22:00"
+  const getNextSchedule = () => {
+    const now = new Date();
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    const toMinutes = (t) => {
+      const [h, m] = t.split(':').map(Number);
+      return h * 60 + m;
+    };
+    const malamMin = toMinutes(data.misting_schedule);
+    const pagiMin = toMinutes(data.misting_morning);
+
+    const isPeriodeMalam = nowMinutes >= malamMin || nowMinutes < pagiMin;
+
+    return isPeriodeMalam
+      ? { label: 'Jadwal Pagi', value: data.misting_morning }
+      : { label: 'Jadwal Malam', value: data.misting_schedule };
+  };
+
   const handleLogout = async () => { await supabase.auth.signOut(); };
 
   const refreshData = useCallback(async (isManual = false) => {
@@ -131,7 +152,7 @@ const Dashboard = () => {
           humidity_low: ctrl.humidity_low,
           humidity_high: ctrl.humidity_high,
           misting_schedule: ctrl.misting_schedule?.substring(0, 5) || '22:00',
-          misting_morning: ctrl.misting_morning?.substring(0, 5) || '06:00',
+          misting_morning: ctrl.misting_morning?.substring(0, 5) || '07:00',
           pressure: ctrl.pump_pressure || 100,
           history: processedHistory,
           raw_rows: rows,
@@ -365,7 +386,7 @@ const Dashboard = () => {
           <StatCard label="Kelembaban" value={`${data.humidity}%`} icon={<Wind className="text-primary h-6 w-6" />} color="primary" />
           <StatCard label="Pompa" value={data.pump_status} icon={<Zap className={`h-6 w-6 ${data.pump_status === 'ON' ? 'text-yellow-500 fill-yellow-500 animate-pulse' : 'text-gray-300'}`} />} active={data.pump_status === 'ON'} color="secondary" />
           <StatCard label="Tekanan" value={`${data.pressure}%`} icon={<Droplets className="text-cyan-500 h-6 w-6" />} color="primary" />
-          <StatCard label="Jadwal" value={data.misting_schedule} icon={<Clock className="text-purple-500 h-6 w-6" />} color="primary" />
+          <StatCard label={getNextSchedule().label} value={getNextSchedule().value} icon={<Clock className="text-purple-500 h-6 w-6" />} color="primary" />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
