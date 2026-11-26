@@ -1,31 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import {
-Droplets,
-Wind,
-Zap,
-Clock,
-Calendar,
-Activity,
-Plus,
-Minus,
-CheckCircle2,
-AlertCircle,
-Settings,
-Wifi,
-ChevronRight,
-ShieldCheck,
-RefreshCw,
-X
+  Droplets, Wind, Zap, Clock, Activity, Plus, Minus,
+  CheckCircle2, AlertCircle, Settings, Wifi, RefreshCw, X
 } from 'lucide-react';
 import HumidityChart from '../components/HumidityChart';
 import StatusAlert from '../components/StatusAlert';
 import PageLoader from '../components/PageLoader';
-import SyncLoader from '../components/SyncLoader';
 
 const checkOnlineStatus = (lastSeen) => {
   if (!lastSeen) return false;
-  // Set ke 60 detik (Standar Stabil) agar tidak kelap-kelip karena lag internet
   return (new Date() - new Date(lastSeen)) / 1000 < 60;
 };
 
@@ -35,7 +19,6 @@ const Dashboard = () => {
   const [isOnline, setIsOnline] = useState(false);
   const [timeframe, setTimeframe] = useState('30m');
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
-  const [userEmail, setUserEmail] = useState('');
   const [showWifiModal, setShowWifiModal] = useState(false);
 
   const [now, setNow] = useState(new Date());
@@ -45,8 +28,8 @@ const Dashboard = () => {
   const [isDraggingPressure, setIsDraggingPressure] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
 
-  // LOGIKA ADMIN: Lebih fleksibel (mengabaikan huruf besar/kecil dan domain)
-  const isAdmin = userEmail && userEmail.toLowerCase().includes('modjoadmin');
+  // UBAH INI: true = Panel Kontrol muncul (bisa atur alat). false = Murni monitoring (read-only).
+  const isAdmin = true; 
 
   const [data, setData] = useState({
     humidity: 0,
@@ -68,12 +51,7 @@ const Dashboard = () => {
     setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
   };
 
-  // Menentukan jadwal misting mana yang relevan ditampilkan berdasarkan jam sekarang.
-  // Misal misting_schedule = 22:00 (malam) & misting_morning = 07:00 (pagi):
-  // - Dari jam 22:00 s/d sebelum 07:00 keesokan harinya -> tampilkan "Jadwal Pagi: 07:00"
-  // - Dari jam 07:00 s/d sebelum 22:00 -> tampilkan "Jadwal Malam: 22:00"
   const getNextSchedule = () => {
-    const now = new Date();
     const nowMinutes = now.getHours() * 60 + now.getMinutes();
     const toMinutes = (t) => {
       const [h, m] = t.split(':').map(Number);
@@ -81,7 +59,6 @@ const Dashboard = () => {
     };
     const malamMin = toMinutes(data.misting_schedule);
     const pagiMin = toMinutes(data.misting_morning);
-
     const isPeriodeMalam = nowMinutes >= malamMin || nowMinutes < pagiMin;
 
     return isPeriodeMalam
@@ -89,9 +66,6 @@ const Dashboard = () => {
       : { label: 'Jadwal Malam', value: data.misting_schedule };
   };
 
-  // Hitung sisa waktu (jam & menit) menuju jadwal misting berikutnya.
-  // targetTimeStr format "HH:MM". Kalau jam target sudah lewat hari ini,
-  // otomatis dianggap besok.
   const getRemainingTime = (targetTimeStr) => {
     const [h, m] = targetTimeStr.split(':').map(Number);
     const target = new Date(now);
@@ -107,25 +81,19 @@ const Dashboard = () => {
     return `${mm}m lagi`;
   };
 
-  const handleLogout = async () => { await supabase.auth.signOut(); };
-
   const refreshData = useCallback(async (isManual = false) => {
     if (isManual) setRefreshing(true);
     try {
-      // Ambil data user yang sedang login
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) setUserEmail(user.email);
-
-      const now = new Date();
+      const nowDate = new Date();
       let timeFilter;
       let groupMinutes = 1;
 
       switch (timeframe) {
-        case '30m': timeFilter = new Date(now - 30 * 60 * 1000); break;
-        case '1h': timeFilter = new Date(now - 60 * 60 * 1000); break;
-        case '12h_week': timeFilter = new Date(now - 7 * 24 * 60 * 60 * 1000); groupMinutes = 720; break;
-        case '24h_week': timeFilter = new Date(now - 7 * 24 * 60 * 60 * 1000); groupMinutes = 1440; break;
-        default: timeFilter = new Date(now - 30 * 60 * 1000);
+        case '30m': timeFilter = new Date(nowDate - 30 * 60 * 1000); break;
+        case '1h': timeFilter = new Date(nowDate - 60 * 60 * 1000); break;
+        case '12h_week': timeFilter = new Date(nowDate - 7 * 24 * 60 * 60 * 1000); groupMinutes = 720; break;
+        case '24h_week': timeFilter = new Date(nowDate - 7 * 24 * 60 * 60 * 1000); groupMinutes = 1440; break;
+        default: timeFilter = new Date(nowDate - 30 * 60 * 1000);
       }
 
       const { data: rows } = await supabase
@@ -143,12 +111,8 @@ const Dashboard = () => {
 
         if (rows && rows.length > 0) {
           const lastRow = rows[rows.length - 1];
-          if (lastRow && lastRow.sensor_nodes) {
-            lastNodes = lastRow.sensor_nodes.slice(0, 4);
-          }
-          if (lastRow && lastRow.wifi_rssi) {
-            lastRssi = lastRow.wifi_rssi;
-          }
+          if (lastRow && lastRow.sensor_nodes) lastNodes = lastRow.sensor_nodes.slice(0, 4);
+          if (lastRow && lastRow.wifi_rssi) lastRssi = lastRow.wifi_rssi;
 
           if (groupMinutes > 1) {
             const groups = {};
@@ -179,12 +143,7 @@ const Dashboard = () => {
           history: processedHistory,
           raw_rows: rows,
           humidity: processedHistory.length > 0 ? processedHistory[processedHistory.length - 1].val : prev.humidity,
-          // Status FISIK pompa (nyala/mati sekarang) -- datang dari ESP32,
-          // dipakai untuk StatCard "Pompa".
           pump_status: lastRow ? lastRow.pump_status : prev.pump_status,
-          // Status MODE MANUAL (apakah kamu sedang memaksa override) -- ini
-          // field langsung dari device_controls, sumbernya web ini sendiri,
-          // jadi selalu akurat & tidak perlu nunggu ESP32.
           manual_override: ctrl.manual_pump_override ?? false,
           sensor_nodes: lastNodes,
           wifi_rssi: lastRssi
@@ -192,13 +151,13 @@ const Dashboard = () => {
 
         if (localLow === null) setLocalLow(ctrl.humidity_low);
         if (localHigh === null) setLocalHigh(ctrl.humidity_high);
-        // Sinkronkan slider dengan nilai terbaru dari Supabase, KECUALI saat
-        // user sedang aktif menggeser slider (biar tidak "lompat" di tengah drag)
         if (!isDraggingPressure) setLocalPressure(ctrl.pump_pressure ?? 100);
 
         setIsOnline(checkOnlineStatus(ctrl.last_seen));
       }
-    } catch (e) { console.error(e); }
+    } catch (e) { 
+      console.error("Error fetching data:", e); 
+    }
     if (isManual) setTimeout(() => setRefreshing(false), 500);
   }, [timeframe, localLow, localHigh, isDraggingPressure]);
 
@@ -208,25 +167,25 @@ const Dashboard = () => {
       setData(c => { setIsOnline(checkOnlineStatus(c.last_seen)); return c; });
       setNow(new Date());
     }, 5000);
+    
     const channel = supabase.channel('sync')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'sensor_data' }, () => refreshData())
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'device_controls' }, () => refreshData())
       .subscribe();
-    return () => { supabase.removeChannel(channel); clearInterval(interval); };
+      
+    return () => { 
+      supabase.removeChannel(channel); 
+      clearInterval(interval); 
+    };
   }, [timeframe, refreshData]);
 
   const updatePump = async (s) => {
-    if (!isAdmin) return; // Proteksi tambahan
     const nextValue = s === 'ON';
     const previousValue = data.manual_override;
-
-    // Optimistic update: manual_override adalah field yang KITA sendiri tulis,
-    // jadi aman langsung diubah di UI tanpa nunggu konfirmasi ESP32.
     setData(prev => ({ ...prev, manual_override: nextValue }));
     setIsUpdating(true);
 
     const { error } = await supabase.from('device_controls').update({ manual_pump_override: nextValue }).eq('id', 1);
-
     if (!error) {
       showToast(`Mode Manual: ${nextValue ? 'AKTIF' : 'NONAKTIF'}`);
     } else {
@@ -237,7 +196,6 @@ const Dashboard = () => {
   };
 
   const saveThresholds = async (low, high) => {
-    if (!isAdmin) return; // Proteksi tambahan
     setIsUpdating(true);
     const { error } = await supabase.from('device_controls').update({
       humidity_low: parseInt(low),
@@ -248,12 +206,9 @@ const Dashboard = () => {
   };
 
   const savePressure = async (val) => {
-    if (!isAdmin) return; // Proteksi tambahan
     const p = val !== undefined ? val : localPressure;
     setIsUpdating(true);
-    const { error } = await supabase.from('device_controls').update({
-      pump_pressure: parseInt(p)
-    }).eq('id', 1);
+    const { error } = await supabase.from('device_controls').update({ pump_pressure: parseInt(p) }).eq('id', 1);
     if (!error) {
       setLocalPressure(p);
       showToast("Tekanan diperbarui!");
@@ -266,31 +221,19 @@ const Dashboard = () => {
       showToast("Tidak ada data untuk diunduh", "error");
       return;
     }
-
     const headers = ["ID", "Waktu", "Kelembaban (%)", "Status Pompa", "Tekanan (%)", "Sensor 1", "Sensor 2", "Sensor 3", "Sensor 4", "WiFi RSSI"];
     const csvRows = [
       headers.join(","),
       ...data.raw_rows.map(row => {
         let nodes = [0, 0, 0, 0];
         try {
-          if (Array.isArray(row.sensor_nodes)) {
-            nodes = row.sensor_nodes;
-          } else if (typeof row.sensor_nodes === 'string') {
-            nodes = JSON.parse(row.sensor_nodes);
-          }
+          if (Array.isArray(row.sensor_nodes)) nodes = row.sensor_nodes;
+          else if (typeof row.sensor_nodes === 'string') nodes = JSON.parse(row.sensor_nodes);
         } catch (e) { console.error("Error parsing sensor_nodes for CSV", e); }
         
         return [
-          row.id,
-          `"${new Date(row.created_at).toLocaleString()}"`,
-          row.humidity,
-          row.pump_status,
-          row.pump_pressure || 0,
-          nodes[0] || 0,
-          nodes[1] || 0,
-          nodes[2] || 0,
-          nodes[3] || 0,
-          row.wifi_rssi || -100
+          row.id, `"${new Date(row.created_at).toLocaleString()}"`, row.humidity, row.pump_status,
+          row.pump_pressure || 0, nodes[0] || 0, nodes[1] || 0, nodes[2] || 0, nodes[3] || 0, row.wifi_rssi || -100
         ].join(",")
       })
     ].join("\n");
@@ -299,348 +242,3 @@ const Dashboard = () => {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.setAttribute('hidden', '');
-    a.setAttribute('href', url);
-    a.setAttribute('download', `data_sensor_${timeframe}.csv`);
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    showToast("Data CSV berhasil diunduh!");
-  };
-
-  if (loading) return <PageLoader />;
-
-  // LOGIKA ICON WIFI (RSSI)
-  const getWifiIcon = (rssi) => {
-    if (!isOnline || rssi <= -100) return <Wifi className="text-gray-400 h-4 w-4" />;
-    if (rssi >= -60) return <Wifi className="text-[#34a853] h-4 w-4" />; // Kuat
-    if (rssi >= -80) return <Wifi className="text-yellow-500 h-4 w-4" />; // Sedang
-    return <Wifi className="text-red-500 h-4 w-4" />; // Lemah
-  };
-
-  return (
-    <div className="min-h-screen bg-grid-pattern pb-12 font-sans selection:bg-primary-container">
-      {/* WiFi Setup Modal */}
-      {showWifiModal && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="bg-white w-full max-w-md rounded-[32px] overflow-hidden shadow-2xl animate-scale-in">
-            <div className="bg-primary p-8 text-white relative">
-              <button onClick={() => setShowWifiModal(false)} className="absolute top-6 right-6 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-all">
-                <X className="h-6 w-6 text-red-500" />
-              </button>
-              <div className="bg-white/20 w-16 h-16 rounded-3xl flex items-center justify-center mb-4">
-                <Wifi className="h-8 w-8" />
-              </div>
-              <h2 className="text-2xl font-black tracking-tight">Pengaturan WiFi</h2>
-              <p className="text-white/70 text-sm font-bold uppercase tracking-widest mt-1">Konfigurasi Jaringan Alat</p>
-            </div>
-            
-            <div className="p-8 space-y-6">
-              <button
-                disabled={!isOnline}
-                onClick={async () => {
-                  if (window.confirm("Reset koneksi WiFi? Alat akan masuk ke mode Hotspot.")) {
-                    const { error } = await supabase.from('device_controls').update({ reset_wifi_req: true }).eq('id', 1);
-                    if (!error) {
-                      showToast("Memproses Reset...");
-                      setShowWifiModal(false);
-                    }
-                  }
-                }}
-                className={`w-full py-5 rounded-[24px] font-black text-sm uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 ${isOnline ? 'bg-red-600 text-white shadow-xl shadow-red-100 hover:bg-red-700 active:scale-95' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
-              >
-                <RefreshCw className={`h-5 w-5 ${isUpdating ? 'animate-spin' : ''}`} /> 
-                Ganti Jaringan WiFi
-              </button>
-              
-              {!isOnline ? (
-                <div className="flex flex-col items-center gap-2">
-                  <div className="h-1.5 w-12 bg-gray-100 rounded-full overflow-hidden">
-                    <div className="bg-red-500 h-full w-1/2 animate-shimmer"></div>
-                  </div>
-                  <p className="text-[10px] text-red-500 font-black uppercase tracking-[0.2em]">Sistem Sedang Offline</p>
-                </div>
-              ) : (
-                <p className="text-[9px] text-red-400 font-bold text-center uppercase tracking-widest">
-                  Klik untuk masuk ke mode konfigurasi HP
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Toast Notification - STRICTLY TOP CENTER */}
-      {toast.show && (
-        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-3 px-6 py-3 rounded-full shadow-[0_10px_40px_rgba(0,0,0,0.2)] animate-bounce-in bg-white border-2 border-surface-outline min-w-[320px] justify-center">
-          {toast.type === 'success' ? (
-            <div className="bg-[#34a853]/20 p-1.5 rounded-full"><CheckCircle2 className="h-5 w-5 text-[#34a853]" /></div>
-          ) : (
-            <div className="bg-[#ea4335]/20 p-1.5 rounded-full"><AlertCircle className="h-5 w-5 text-[#ea4335]" /></div>
-          )}
-          <span className="font-black text-sm text-gray-900 uppercase tracking-widest">{toast.message}</span>
-        </div>
-      )}
-
-      <header className="bg-[#1a73e8] border-b border-[#174ea6] sticky top-0 z-50 px-6 h-18 flex items-center justify-between shadow-xl">
-        <div className="flex items-center gap-4">
-          <div className="bg-white/20 p-2 rounded-2xl rotate-3 border border-white/40">
-            <Droplets className="text-white h-6 w-6" />
-          </div>
-          <div className="flex flex-col">
-            <h1 className="text-2xl font-black text-white tracking-tighter leading-none">
-              Modjo <span className="text-[#d2e3fc]">Smart</span>
-            </h1>
-            <div className="flex items-center gap-2 mt-1">
-              <div className={`h-2 w-2 rounded-full ${isOnline ? 'bg-[#34a853] shadow-[0_0_8px_#34a853]' : 'bg-[#ea4335]'}`}></div>
-              <span className="text-[10px] font-black text-white/90 uppercase tracking-widest">{isOnline ? 'Sistem Online' : 'Sistem Offline'}</span>
-              {isOnline && (
-                <div className="flex items-center gap-1 ml-1 pl-2 border-l border-white/20">
-                  {getWifiIcon(data.wifi_rssi)}
-                  <span className="text-[9px] font-bold text-white/70">{data.wifi_rssi} dBm</span>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          {isAdmin && (
-            <button onClick={() => setShowWifiModal(true)} className="p-2.5 hover:bg-white/10 rounded-full transition-all text-white border border-white/10">
-              <Settings className="h-5 w-5" />
-            </button>
-          )}
-          <button 
-            onClick={downloadCSV}
-            className="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-2.5 rounded-full text-white font-black text-xs transition-all border border-white/20 active:scale-95"
-          >
-            <Activity className="h-4 w-4" /> <span>UNDUH CSV</span>
-          </button>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-4 py-8 space-y-8 animate-dashboard-reveal">
-        <StatusAlert humidity={data.humidity} />
-
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-          <StatCard label="Kelembaban" value={`${data.humidity}%`} icon={<Wind className="text-primary h-6 w-6" />} color="primary" />
-          <StatCard label="Pompa" value={data.pump_status} icon={<Zap className={`h-6 w-6 ${data.pump_status === 'ON' ? 'text-yellow-500 fill-yellow-500 animate-pulse' : 'text-gray-300'}`} />} active={data.pump_status === 'ON'} color="secondary" />
-          <StatCard label="Tekanan" value={`${data.pressure}%`} icon={<Droplets className="text-cyan-500 h-6 w-6" />} color="primary" />
-          <div className="bg-surface p-6 rounded-google border border-surface-outline shadow-sm hover:border-primary/30 transition-all">
-            <div className="w-12 h-12 rounded-2xl mb-4 flex items-center justify-center bg-primary-container/50">
-              <Clock className="text-purple-500 h-6 w-6" />
-            </div>
-            <p className="text-[10px] text-gray-400 font-black uppercase tracking-[0.2em] mb-2">Jadwal Misting</p>
-            <div className="space-y-1.5">
-              <div className={`flex items-center justify-between px-2.5 py-1.5 rounded-xl transition-all ${getNextSchedule().label === 'Jadwal Malam' ? 'bg-purple-50 ring-1 ring-purple-300' : ''}`}>
-                <span className="text-[10px] font-black text-gray-500 uppercase tracking-wider">Malam</span>
-                <span className="text-right">
-                  <span className="block text-sm font-black text-gray-900">{data.misting_schedule}</span>
-                  {getNextSchedule().label === 'Jadwal Malam' && (
-                    <span className="block text-[9px] font-bold text-purple-500">{getRemainingTime(data.misting_schedule)}</span>
-                  )}
-                </span>
-              </div>
-              <div className={`flex items-center justify-between px-2.5 py-1.5 rounded-xl transition-all ${getNextSchedule().label === 'Jadwal Pagi' ? 'bg-purple-50 ring-1 ring-purple-300' : ''}`}>
-                <span className="text-[10px] font-black text-gray-500 uppercase tracking-wider">Pagi</span>
-                <span className="text-right">
-                  <span className="block text-sm font-black text-gray-900">{data.misting_morning}</span>
-                  {getNextSchedule().label === 'Jadwal Pagi' && (
-                    <span className="block text-[9px] font-bold text-purple-500">{getRemainingTime(data.misting_morning)}</span>
-                  )}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-8">
-            {/* Chart Section */}
-            <div className="bg-surface rounded-google shadow-sm border border-surface-outline overflow-hidden">
-              <div className="p-6 border-b border-surface-variant flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="bg-primary/10 p-2 rounded-xl">
-                    <Activity className="h-5 w-5 text-primary" />
-                  </div>
-                  <h3 className="text-sm font-bold text-gray-800 uppercase tracking-widest">Tren Real Time Kelembaban</h3>
-                </div>
-                <div className="flex bg-white p-1 rounded-full border border-surface-outline shadow-sm">
-                  {['15m', '30m', '1h', '12h_week', '24h_week'].map(t => (
-                    <button
-                      key={t}
-                      onClick={() => setTimeframe(t)}
-                      className={`px-4 py-1.5 text-[10px] font-black rounded-full transition-all ${timeframe === t ? 'bg-[#1a73e8] text-white shadow-lg' : 'text-gray-500 hover:bg-gray-100 hover:text-[#1a73e8]'}`}
-                    >
-                      {t.replace('_week', '').toUpperCase()}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="p-6 h-[400px]">
-                <HumidityChart data={data.history} timeframe={timeframe} />
-              </div>
-            </div>
-
-            {/* Distribution Grid */}
-            <div className="bg-surface p-8 rounded-google shadow-sm border border-surface-outline">
-              <h3 className="text-xs font-bold text-gray-400 mb-6 flex items-center gap-2 uppercase tracking-[0.2em]">
-                <Droplets className="text-primary h-4 w-4" /> SENSOR YANG TERPASANG
-              </h3>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
-                {data.sensor_nodes.map((val, i) => (
-                  <div key={i} className={`flex flex-col items-center justify-center p-6 rounded-google border-2 transition-all ${val > 0 ? 'bg-primary-container/30 border-primary-container' : 'bg-surface-variant border-dashed border-gray-300 opacity-50'}`}>
-                    <span className="text-[10px] font-black text-primary/60 uppercase mb-2">Sensor {i + 1}</span>
-                    <span className="text-3xl font-black text-primary-onContainer">{val > 0 ? `${val}%` : '--'}</span>
-                    <div className="mt-3 w-full bg-white/50 rounded-full h-1.5 overflow-hidden">
-                      <div className="bg-primary h-full transition-all duration-1000" style={{ width: `${val}%` }}></div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-8">
-            {/* Control Panel - ONLY FOR ADMIN */}
-            {isAdmin ? (
-              <div className={`bg-surface p-8 rounded-google shadow-md border border-primary/10 transition-all ${!isOnline ? 'grayscale opacity-70 pointer-events-none' : ''}`}>
-                <h3 className="text-xl font-black text-gray-900 mb-8 flex items-center gap-3">
-                  <Zap className="text-yellow-500 h-6 w-6" /> Kontrol Panel
-                </h3>
-
-                <div className="space-y-6">
-                  {/* Manual Toggle */}
-                  <div className="bg-surface-variant p-6 rounded-google border border-surface-outline flex items-center justify-between shadow-sm">
-                    <div>
-                      <p className="font-black text-gray-900 text-base">Mode Siram Manual</p>
-                      <p className="text-[10px] font-bold text-[#1a73e8] uppercase mt-1 tracking-wider">Pengkondisian Aman (Otomatis Berhenti)</p>
-                    </div>
-                    <button
-                      onClick={() => updatePump(data.manual_override ? 'OFF' : 'ON')}
-                      className={`w-20 h-10 rounded-full transition-all relative flex items-center px-1 shadow-inner focus:outline-none focus:ring-4 focus:ring-[#1a73e8]/30 ${data.manual_override ? 'bg-[#1a73e8]' : 'bg-gray-400'}`}
-                    >
-                      <div className={`w-8 h-8 rounded-full bg-white shadow-md transition-all transform duration-300 ${data.manual_override ? 'translate-x-10' : 'translate-x-0'}`}></div>
-                    </button>
-                  </div>
-
-                  {/* PWM Slider */}
-                  <div className="bg-surface-variant p-5 rounded-google border border-surface-outline">
-                    <div className="flex justify-between items-center mb-4">
-                      <p className="font-black text-gray-900 text-sm">Tekanan Misting</p>
-                      <span className="bg-white px-3 py-1 rounded-full text-xs font-black text-primary border border-primary-container">{localPressure}%</span>
-                    </div>
-                    <input
-                      type="range" min="0" max="100"
-                      value={localPressure}
-                      onMouseDown={() => setIsDraggingPressure(true)}
-                      onTouchStart={() => setIsDraggingPressure(true)}
-                      onChange={(e) => setLocalPressure(e.target.value)}
-                      onMouseUp={() => { savePressure(); setIsDraggingPressure(false); }}
-                      onTouchEnd={() => { savePressure(); setIsDraggingPressure(false); }}
-                      className="w-full h-3 bg-white rounded-full appearance-none cursor-pointer border border-surface-outline accent-primary"
-                    />
-                    <div className="flex justify-between mt-2 px-1 text-[9px] font-bold text-gray-400 uppercase tracking-widest">
-                      <span>Lemah</span>
-                      <span>Sangat Kuat</span>
-                    </div>
-                  </div>
-
-                  {/* Threshold Controls */}
-                  <div className="bg-primary-container/30 p-5 rounded-google border border-primary-container">
-                    <p className="font-black text-gray-900 text-sm mb-5 text-center uppercase tracking-widest">Target Kelembaban</p>
-                    <div className="flex items-center justify-between gap-4">
-                      <ThresholdControl
-                        label="MIN"
-                        value={localLow}
-                        onChange={(newVal) => {
-                          setLocalLow(newVal);
-                          saveThresholds(newVal, localHigh);
-                        }}
-                        color="error"
-                      />
-                      <div className="h-8 w-0.5 bg-primary-container rounded-full"></div>
-                      <ThresholdControl
-                        label="MAX"
-                        value={localHigh}
-                        onChange={(newVal) => {
-                          setLocalHigh(newVal);
-                          saveThresholds(localLow, newVal);
-                        }}
-                        color="secondary"
-                      />
-                    </div>
-                    <div className="mt-4 text-center">
-                      <span className="text-[10px] font-bold text-primary/60 uppercase animate-pulse">Auto-saving...</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="bg-white p-8 rounded-google shadow-md border border-secondary-container text-center animate-bounce-in">
-                <div className="bg-secondary-container/50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <CheckCircle2 className="text-secondary h-8 w-8" />
-                </div>
-                <h3 className="text-lg font-black text-gray-900 mb-2">Akses Pemantau</h3>
-                <p className="text-xs text-gray-500 leading-relaxed font-medium">
-                  Selamat Datang! Anda masuk sebagai pemantau kelompok tani. Dashboard ini menampilkan kondisi tanaman G0 secara real-time.
-                </p>
-                <div className="mt-6 p-4 bg-surface-variant rounded-2xl text-[10px] font-black text-secondary uppercase tracking-widest">
-                  Kontrol Otomatis Aktif
-                </div>
-              </div>
-            )}
-
-            {/* Quick Status */}
-            <div className="bg-secondary-container/20 p-6 rounded-google border border-secondary-container border-dashed">
-              <div className="flex items-center gap-3 mb-2">
-                <CheckCircle2 className="text-secondary h-5 w-5" />
-                <p className="text-xs font-black text-secondary-onContainer uppercase tracking-widest">Optimal Range</p>
-              </div>
-              <p className="text-[10px] text-secondary-onContainer/70 leading-relaxed font-medium">
-                Trichoderma sp. tumbuh optimal pada kelembaban 60-80%. Pastikan target alat berada dalam rentang ini.
-              </p>
-            </div>
-          </div>
-        </div>
-      </main>
-    </div>
-  );
-};
-
-const StatCard = ({ label, value, icon, active = false, color = 'primary' }) => (
-  <div className={`bg-surface p-6 rounded-google border transition-all ${active ? 'border-yellow-400 bg-yellow-50/50 shadow-xl shadow-yellow-100 ring-2 ring-yellow-400/20' : 'border-surface-outline shadow-sm hover:border-primary/30'}`}>
-    <div className={`w-12 h-12 rounded-2xl mb-4 flex items-center justify-center ${active ? 'bg-yellow-100' : `bg-${color}-container/50`}`}>{icon}</div>
-    <p className="text-[10px] text-gray-400 font-black uppercase tracking-[0.2em]">{label}</p>
-    <p className={`text-2xl font-black mt-1 ${active ? 'text-yellow-700' : 'text-gray-900'}`}>{value}</p>
-  </div>
-);
-
-const ThresholdControl = ({ label, value, onChange, color }) => (
-  <div className="flex flex-col items-center gap-2">
-    <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">{label}</span>
-    <div className="flex items-center gap-2">
-      <button
-        onClick={() => {
-          const next = Math.max(0, parseInt(value) - 1);
-          onChange(next);
-        }}
-        className="p-1.5 bg-white rounded-full border border-surface-outline text-gray-600 hover:bg-gray-100 active:scale-90 transition-all"
-      >
-        <Minus className="h-3 w-3" />
-      </button>
-      <span className="text-xl font-black w-10 text-center">{value}</span>
-      <button
-        onClick={() => {
-          const next = Math.min(100, parseInt(value) + 1);
-          onChange(next);
-        }}
-        className="p-1.5 bg-white rounded-full border border-surface-outline text-gray-600 hover:bg-gray-100 active:scale-90 transition-all"
-      >
-        <Plus className="h-3 w-3" />
-      </button>
-    </div>
-  </div>
-);
-
-export default Dashboard;
