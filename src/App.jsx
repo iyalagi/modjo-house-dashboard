@@ -7,9 +7,10 @@ function App() {
     <ErrorBoundary>
       <Router>
         <Routes>
-          {/* Semua halaman langsung menuju Dashboard, tanpa login */}
+          {/* Semua rute langsung mengarah ke Dashboard, tanpa cek login */}
           <Route path="/" element={<Dashboard />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/login" element={<Dashboard />} />
           <Route path="*" element={<Dashboard />} />
         </Routes>
       </Router>
