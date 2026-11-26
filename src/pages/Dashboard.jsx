@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import {
-  Droplets, Wind, Zap, Clock, LogOut, Activity, Plus, Minus,
+  Droplets, Wind, Zap, Clock, Activity, Plus, Minus,
   CheckCircle2, AlertCircle, Settings, Wifi, RefreshCw, X
 } from 'lucide-react';
 import HumidityChart from '../components/HumidityChart';
@@ -15,11 +15,9 @@ const checkOnlineStatus = (lastSeen) => {
 
 const Dashboard = () => {
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [isOnline, setIsOnline] = useState(false);
   const [timeframe, setTimeframe] = useState('30m');
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
-  const [userEmail, setUserEmail] = useState('');
   const [showWifiModal, setShowWifiModal] = useState(false);
 
   const [now, setNow] = useState(new Date());
@@ -29,9 +27,8 @@ const Dashboard = () => {
   const [isDraggingPressure, setIsDraggingPressure] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
 
-  // Jika Anda ingin panel kontrol SELALU muncul, ubah baris di bawah menjadi:
-  // const isAdmin = true;
-  const isAdmin = userEmail && userEmail.toLowerCase().includes('modjoadmin');
+  // PAKSA ADMIN SELALU TRUE (Kontrol selalu aktif tanpa login)
+  const isAdmin = true; 
 
   const [data, setData] = useState({
     humidity: 0, pump_status: 'OFF', manual_override: false, pressure: 100,
@@ -65,17 +62,9 @@ const Dashboard = () => {
     return hh > 0 ? `${hh}j ${mm}m lagi` : `${mm}m lagi`;
   };
 
-  const handleLogout = async () => { 
-    await supabase.auth.signOut(); 
-    window.location.href = '/'; 
-  };
-
   const refreshData = useCallback(async (isManual = false) => {
-    if (isManual) setRefreshing(true);
+    if (isManual) setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) setUserEmail(user.email);
-
       const nowDate = new Date();
       let timeFilter, groupMinutes = 1;
       switch (timeframe) {
@@ -128,11 +117,12 @@ const Dashboard = () => {
         setIsOnline(checkOnlineStatus(ctrl.last_seen));
       }
     } catch (e) { console.error("Error:", e); }
-    if (isManual) setTimeout(() => setRefreshing(false), 500);
+    if (isManual) setTimeout(() => setLoading(false), 500);
+    else setLoading(false);
   }, [timeframe, localLow, localHigh, isDraggingPressure]);
 
   useEffect(() => {
-    refreshData().then(() => setLoading(false));
+    refreshData();
     const interval = setInterval(() => {
       setData(c => { setIsOnline(checkOnlineStatus(c.last_seen)); return c; });
       setNow(new Date());
@@ -145,7 +135,6 @@ const Dashboard = () => {
   }, [timeframe, refreshData]);
 
   const updatePump = async (s) => {
-    if (!isAdmin) return;
     const nextValue = s === 'ON';
     setData(prev => ({ ...prev, manual_override: nextValue }));
     setIsUpdating(true);
@@ -156,7 +145,6 @@ const Dashboard = () => {
   };
 
   const saveThresholds = async (low, high) => {
-    if (!isAdmin) return;
     setIsUpdating(true);
     const { error } = await supabase.from('device_controls').update({ humidity_low: parseInt(low), humidity_high: parseInt(high) }).eq('id', 1);
     if (error) showToast("Gagal sinkron target", "error");
@@ -164,7 +152,6 @@ const Dashboard = () => {
   };
 
   const savePressure = async (val) => {
-    if (!isAdmin) return;
     const p = val !== undefined ? val : localPressure;
     setIsUpdating(true);
     const { error } = await supabase.from('device_controls').update({ pump_pressure: parseInt(p) }).eq('id', 1);
@@ -219,23 +206,12 @@ const Dashboard = () => {
           </div>
         </div>
 
+        {/* HANYA TOMBOL PENGATURAN DAN UNDUH CSV (TANPA LOGIN/LOGOUT) */}
         <div className="flex items-center gap-3">
-          {isAdmin && (
-            <button onClick={() => setShowWifiModal(true)} className="p-2.5 hover:bg-white/10 rounded-full transition-all text-white border border-white/10"><Settings className="h-5 w-5" /></button>
-          )}
+          <button onClick={() => setShowWifiModal(true)} className="p-2.5 hover:bg-white/10 rounded-full transition-all text-white border border-white/10"><Settings className="h-5 w-5" /></button>
           <button onClick={downloadCSV} className="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-2.5 rounded-full text-white font-black text-xs transition-all border border-white/20 active:scale-95">
             <Activity className="h-4 w-4" /> <span>UNDUH CSV</span>
           </button>
-          {isAdmin && (
-            <button onClick={handleLogout} className="flex items-center gap-2 bg-[#d93025] px-5 py-2.5 rounded-full text-white font-black text-xs hover:bg-[#b21f16] transition-all shadow-lg active:scale-95 border border-[#a50e0e]">
-              <LogOut className="h-4 w-4" /> <span className="hidden sm:inline">KELUAR</span>
-            </button>
-          )}
-          {!isAdmin && (
-            <a href="/login" className="flex items-center gap-2 bg-white/20 hover:bg-white/30 px-4 py-2.5 rounded-full text-white font-black text-xs transition-all border border-white/20 active:scale-95">
-              <span>LOGIN ADMIN</span>
-            </a>
-          )}
         </div>
       </header>
 
@@ -296,42 +272,40 @@ const Dashboard = () => {
           </div>
 
           <div className="space-y-8">
-            {/* PANEL KONTROL: Hanya muncul jika isAdmin = true. TIDAK ADA KARTU "AKSES PEMANTAU" LAGI. */}
-            {isAdmin && (
-              <div className={`bg-surface p-8 rounded-google shadow-md border border-primary/10 transition-all ${!isOnline ? 'grayscale opacity-70 pointer-events-none' : ''}`}>
-                <h3 className="text-xl font-black text-gray-900 mb-8 flex items-center gap-3"><Zap className="text-yellow-500 h-6 w-6" /> Kontrol Panel</h3>
-                <div className="space-y-6">
-                  <div className="bg-surface-variant p-6 rounded-google border border-surface-outline flex items-center justify-between shadow-sm">
-                    <div>
-                      <p className="font-black text-gray-900 text-base">Mode Siram Manual</p>
-                      <p className="text-[10px] font-bold text-[#1a73e8] uppercase mt-1 tracking-wider">Pengkondisian Aman (Otomatis Berhenti)</p>
-                    </div>
-                    <button onClick={() => updatePump(data.manual_override ? 'OFF' : 'ON')} className={`w-20 h-10 rounded-full transition-all relative flex items-center px-1 shadow-inner focus:outline-none focus:ring-4 focus:ring-[#1a73e8]/30 ${data.manual_override ? 'bg-[#1a73e8]' : 'bg-gray-400'}`}>
-                      <div className={`w-8 h-8 rounded-full bg-white shadow-md transition-all transform duration-300 ${data.manual_override ? 'translate-x-10' : 'translate-x-0'}`}></div>
-                    </button>
+            {/* PANEL KONTROL SELALU MUNCUL */}
+            <div className={`bg-surface p-8 rounded-google shadow-md border border-primary/10 transition-all ${!isOnline ? 'grayscale opacity-70 pointer-events-none' : ''}`}>
+              <h3 className="text-xl font-black text-gray-900 mb-8 flex items-center gap-3"><Zap className="text-yellow-500 h-6 w-6" /> Kontrol Panel</h3>
+              <div className="space-y-6">
+                <div className="bg-surface-variant p-6 rounded-google border border-surface-outline flex items-center justify-between shadow-sm">
+                  <div>
+                    <p className="font-black text-gray-900 text-base">Mode Siram Manual</p>
+                    <p className="text-[10px] font-bold text-[#1a73e8] uppercase mt-1 tracking-wider">Pengkondisian Aman (Otomatis Berhenti)</p>
                   </div>
+                  <button onClick={() => updatePump(data.manual_override ? 'OFF' : 'ON')} className={`w-20 h-10 rounded-full transition-all relative flex items-center px-1 shadow-inner focus:outline-none focus:ring-4 focus:ring-[#1a73e8]/30 ${data.manual_override ? 'bg-[#1a73e8]' : 'bg-gray-400'}`}>
+                    <div className={`w-8 h-8 rounded-full bg-white shadow-md transition-all transform duration-300 ${data.manual_override ? 'translate-x-10' : 'translate-x-0'}`}></div>
+                  </button>
+                </div>
 
-                  <div className="bg-surface-variant p-5 rounded-google border border-surface-outline">
-                    <div className="flex justify-between items-center mb-4">
-                      <p className="font-black text-gray-900 text-sm">Tekanan Misting</p>
-                      <span className="bg-white px-3 py-1 rounded-full text-xs font-black text-primary border border-primary-container">{localPressure}%</span>
-                    </div>
-                    <input type="range" min="0" max="100" value={localPressure} onMouseDown={() => setIsDraggingPressure(true)} onTouchStart={() => setIsDraggingPressure(true)} onChange={(e) => setLocalPressure(e.target.value)} onMouseUp={() => { savePressure(); setIsDraggingPressure(false); }} onTouchEnd={() => { savePressure(); setIsDraggingPressure(false); }} className="w-full h-3 bg-white rounded-full appearance-none cursor-pointer border border-surface-outline accent-primary" />
-                    <div className="flex justify-between mt-2 px-1 text-[9px] font-bold text-gray-400 uppercase tracking-widest"><span>Lemah</span><span>Sangat Kuat</span></div>
+                <div className="bg-surface-variant p-5 rounded-google border border-surface-outline">
+                  <div className="flex justify-between items-center mb-4">
+                    <p className="font-black text-gray-900 text-sm">Tekanan Misting</p>
+                    <span className="bg-white px-3 py-1 rounded-full text-xs font-black text-primary border border-primary-container">{localPressure}%</span>
                   </div>
+                  <input type="range" min="0" max="100" value={localPressure} onMouseDown={() => setIsDraggingPressure(true)} onTouchStart={() => setIsDraggingPressure(true)} onChange={(e) => setLocalPressure(e.target.value)} onMouseUp={() => { savePressure(); setIsDraggingPressure(false); }} onTouchEnd={() => { savePressure(); setIsDraggingPressure(false); }} className="w-full h-3 bg-white rounded-full appearance-none cursor-pointer border border-surface-outline accent-primary" />
+                  <div className="flex justify-between mt-2 px-1 text-[9px] font-bold text-gray-400 uppercase tracking-widest"><span>Lemah</span><span>Sangat Kuat</span></div>
+                </div>
 
-                  <div className="bg-primary-container/30 p-5 rounded-google border border-primary-container">
-                    <p className="font-black text-gray-900 text-sm mb-5 text-center uppercase tracking-widest">Target Kelembaban</p>
-                    <div className="flex items-center justify-between gap-4">
-                      <ThresholdControl label="MIN" value={localLow} onChange={(newVal) => { setLocalLow(newVal); saveThresholds(newVal, localHigh); }} color="error" />
-                      <div className="h-8 w-0.5 bg-primary-container rounded-full"></div>
-                      <ThresholdControl label="MAX" value={localHigh} onChange={(newVal) => { setLocalHigh(newVal); saveThresholds(localLow, newVal); }} color="secondary" />
-                    </div>
-                    <div className="mt-4 text-center"><span className="text-[10px] font-bold text-primary/60 uppercase animate-pulse">Auto-saving...</span></div>
+                <div className="bg-primary-container/30 p-5 rounded-google border border-primary-container">
+                  <p className="font-black text-gray-900 text-sm mb-5 text-center uppercase tracking-widest">Target Kelembaban</p>
+                  <div className="flex items-center justify-between gap-4">
+                    <ThresholdControl label="MIN" value={localLow} onChange={(newVal) => { setLocalLow(newVal); saveThresholds(newVal, localHigh); }} />
+                    <div className="h-8 w-0.5 bg-primary-container rounded-full"></div>
+                    <ThresholdControl label="MAX" value={localHigh} onChange={(newVal) => { setLocalHigh(newVal); saveThresholds(localLow, newVal); }} />
                   </div>
+                  <div className="mt-4 text-center"><span className="text-[10px] font-bold text-primary/60 uppercase animate-pulse">Auto-saving...</span></div>
                 </div>
               </div>
-            )}
+            </div>
 
             <div className="bg-secondary-container/20 p-6 rounded-google border border-secondary-container border-dashed">
               <div className="flex items-center gap-3 mb-2"><CheckCircle2 className="text-secondary h-5 w-5" /><p className="text-xs font-black text-secondary-onContainer uppercase tracking-widest">Optimal Range</p></div>
