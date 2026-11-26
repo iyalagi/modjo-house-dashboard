@@ -415,9 +415,6 @@ const Dashboard = () => {
           >
             <Activity className="h-4 w-4" /> <span>UNDUH CSV</span>
           </button>
-          <button onClick={handleLogout} className="flex items-center gap-2 bg-[#d93025] px-5 py-2.5 rounded-full text-white font-black text-xs hover:bg-[#b21f16] transition-all shadow-lg active:scale-95 border border-[#a50e0e]">
-            <LogOut className="h-4 w-4" /> <span className="hidden sm:inline"></span>
-          </button>
         </div>
       </header>
 
