@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import {
-  Droplets, Wind, Zap, Clock, Activity, Plus, Minus,
+  Droplets, Wind, Zap, Clock, LogOut, Activity, Plus, Minus,
   CheckCircle2, AlertCircle, Settings, Wifi, RefreshCw, X
 } from 'lucide-react';
 import HumidityChart from '../components/HumidityChart';
@@ -19,6 +19,7 @@ const Dashboard = () => {
   const [isOnline, setIsOnline] = useState(false);
   const [timeframe, setTimeframe] = useState('30m');
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+  const [userEmail, setUserEmail] = useState('');
   const [showWifiModal, setShowWifiModal] = useState(false);
 
   const [now, setNow] = useState(new Date());
@@ -28,22 +29,14 @@ const Dashboard = () => {
   const [isDraggingPressure, setIsDraggingPressure] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
 
-  // UBAH INI: true = Panel Kontrol muncul (bisa atur alat). false = Murni monitoring (read-only).
-  const isAdmin = true; 
+  // Jika Anda ingin panel kontrol SELALU muncul, ubah baris di bawah menjadi:
+  // const isAdmin = true;
+  const isAdmin = userEmail && userEmail.toLowerCase().includes('modjoadmin');
 
   const [data, setData] = useState({
-    humidity: 0,
-    pump_status: 'OFF',
-    manual_override: false,
-    pressure: 100,
-    misting_schedule: '22:00',
-    misting_morning: '07:00',
-    humidity_low: 60,
-    humidity_high: 80,
-    last_seen: null,
-    history: [],
-    sensor_nodes: [0, 0, 0, 0],
-    wifi_rssi: -100
+    humidity: 0, pump_status: 'OFF', manual_override: false, pressure: 100,
+    misting_schedule: '22:00', misting_morning: '07:00', humidity_low: 60, humidity_high: 80,
+    last_seen: null, history: [], sensor_nodes: [0, 0, 0, 0], wifi_rssi: -100
   });
 
   const showToast = (message, type = 'success') => {
@@ -53,17 +46,11 @@ const Dashboard = () => {
 
   const getNextSchedule = () => {
     const nowMinutes = now.getHours() * 60 + now.getMinutes();
-    const toMinutes = (t) => {
-      const [h, m] = t.split(':').map(Number);
-      return h * 60 + m;
-    };
+    const toMinutes = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
     const malamMin = toMinutes(data.misting_schedule);
     const pagiMin = toMinutes(data.misting_morning);
     const isPeriodeMalam = nowMinutes >= malamMin || nowMinutes < pagiMin;
-
-    return isPeriodeMalam
-      ? { label: 'Jadwal Pagi', value: data.misting_morning }
-      : { label: 'Jadwal Malam', value: data.misting_schedule };
+    return isPeriodeMalam ? { label: 'Jadwal Pagi', value: data.misting_morning } : { label: 'Jadwal Malam', value: data.misting_schedule };
   };
 
   const getRemainingTime = (targetTimeStr) => {
@@ -71,23 +58,26 @@ const Dashboard = () => {
     const target = new Date(now);
     target.setHours(h, m, 0, 0);
     if (target <= now) target.setDate(target.getDate() + 1);
-
     const diffMs = target - now;
     const diffMin = Math.floor(diffMs / 60000);
     const hh = Math.floor(diffMin / 60);
     const mm = diffMin % 60;
+    return hh > 0 ? `${hh}j ${mm}m lagi` : `${mm}m lagi`;
+  };
 
-    if (hh > 0) return `${hh}j ${mm}m lagi`;
-    return `${mm}m lagi`;
+  const handleLogout = async () => { 
+    await supabase.auth.signOut(); 
+    window.location.href = '/'; 
   };
 
   const refreshData = useCallback(async (isManual = false) => {
     if (isManual) setRefreshing(true);
     try {
-      const nowDate = new Date();
-      let timeFilter;
-      let groupMinutes = 1;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) setUserEmail(user.email);
 
+      const nowDate = new Date();
+      let timeFilter, groupMinutes = 1;
       switch (timeframe) {
         case '30m': timeFilter = new Date(nowDate - 30 * 60 * 1000); break;
         case '1h': timeFilter = new Date(nowDate - 60 * 60 * 1000); break;
@@ -96,23 +86,15 @@ const Dashboard = () => {
         default: timeFilter = new Date(nowDate - 30 * 60 * 1000);
       }
 
-      const { data: rows } = await supabase
-        .from('sensor_data')
-        .select('*')
-        .gt('created_at', timeFilter.toISOString())
-        .order('created_at', { ascending: true });
-
+      const { data: rows } = await supabase.from('sensor_data').select('*').gt('created_at', timeFilter.toISOString()).order('created_at', { ascending: true });
       const { data: ctrl } = await supabase.from('device_controls').select('*').eq('id', 1).single();
 
       if (ctrl) {
-        let processedHistory = [];
-        let lastNodes = [0, 0, 0, 0];
-        let lastRssi = -100;
-
+        let processedHistory = [], lastNodes = [0, 0, 0, 0], lastRssi = -100;
         if (rows && rows.length > 0) {
           const lastRow = rows[rows.length - 1];
-          if (lastRow && lastRow.sensor_nodes) lastNodes = lastRow.sensor_nodes.slice(0, 4);
-          if (lastRow && lastRow.wifi_rssi) lastRssi = lastRow.wifi_rssi;
+          if (lastRow?.sensor_nodes) lastNodes = lastRow.sensor_nodes.slice(0, 4);
+          if (lastRow?.wifi_rssi) lastRssi = lastRow.wifi_rssi;
 
           if (groupMinutes > 1) {
             const groups = {};
@@ -131,33 +113,21 @@ const Dashboard = () => {
         }
 
         const lastRow = rows && rows.length > 0 ? rows[rows.length - 1] : null;
-
         setData(prev => ({
-          ...prev,
-          last_seen: ctrl.last_seen,
-          humidity_low: ctrl.humidity_low,
-          humidity_high: ctrl.humidity_high,
-          misting_schedule: ctrl.misting_schedule?.substring(0, 5) || '22:00',
-          misting_morning: ctrl.misting_morning?.substring(0, 5) || '07:00',
-          pressure: ctrl.pump_pressure ?? 100,
-          history: processedHistory,
-          raw_rows: rows,
+          ...prev, last_seen: ctrl.last_seen, humidity_low: ctrl.humidity_low, humidity_high: ctrl.humidity_high,
+          misting_schedule: ctrl.misting_schedule?.substring(0, 5) || '22:00', misting_morning: ctrl.misting_morning?.substring(0, 5) || '07:00',
+          pressure: ctrl.pump_pressure ?? 100, history: processedHistory, raw_rows: rows,
           humidity: processedHistory.length > 0 ? processedHistory[processedHistory.length - 1].val : prev.humidity,
           pump_status: lastRow ? lastRow.pump_status : prev.pump_status,
-          manual_override: ctrl.manual_pump_override ?? false,
-          sensor_nodes: lastNodes,
-          wifi_rssi: lastRssi
+          manual_override: ctrl.manual_pump_override ?? false, sensor_nodes: lastNodes, wifi_rssi: lastRssi
         }));
 
         if (localLow === null) setLocalLow(ctrl.humidity_low);
         if (localHigh === null) setLocalHigh(ctrl.humidity_high);
         if (!isDraggingPressure) setLocalPressure(ctrl.pump_pressure ?? 100);
-
         setIsOnline(checkOnlineStatus(ctrl.last_seen));
       }
-    } catch (e) { 
-      console.error("Error fetching data:", e); 
-    }
+    } catch (e) { console.error("Error:", e); }
     if (isManual) setTimeout(() => setRefreshing(false), 500);
   }, [timeframe, localLow, localHigh, isDraggingPressure]);
 
@@ -167,86 +137,53 @@ const Dashboard = () => {
       setData(c => { setIsOnline(checkOnlineStatus(c.last_seen)); return c; });
       setNow(new Date());
     }, 5000);
-    
     const channel = supabase.channel('sync')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'sensor_data' }, () => refreshData())
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'device_controls' }, () => refreshData())
       .subscribe();
-      
-    return () => { 
-      supabase.removeChannel(channel); 
-      clearInterval(interval); 
-    };
+    return () => { supabase.removeChannel(channel); clearInterval(interval); };
   }, [timeframe, refreshData]);
 
   const updatePump = async (s) => {
+    if (!isAdmin) return;
     const nextValue = s === 'ON';
-    const previousValue = data.manual_override;
     setData(prev => ({ ...prev, manual_override: nextValue }));
     setIsUpdating(true);
-
     const { error } = await supabase.from('device_controls').update({ manual_pump_override: nextValue }).eq('id', 1);
-    if (!error) {
-      showToast(`Mode Manual: ${nextValue ? 'AKTIF' : 'NONAKTIF'}`);
-    } else {
-      setData(prev => ({ ...prev, manual_override: previousValue }));
-      showToast("Gagal update mode manual", "error");
-    }
+    if (!error) showToast(`Mode Manual: ${nextValue ? 'AKTIF' : 'NONAKTIF'}`);
+    else setData(prev => ({ ...prev, manual_override: !nextValue }));
     setIsUpdating(false);
   };
 
   const saveThresholds = async (low, high) => {
+    if (!isAdmin) return;
     setIsUpdating(true);
-    const { error } = await supabase.from('device_controls').update({
-      humidity_low: parseInt(low),
-      humidity_high: parseInt(high)
-    }).eq('id', 1);
+    const { error } = await supabase.from('device_controls').update({ humidity_low: parseInt(low), humidity_high: parseInt(high) }).eq('id', 1);
     if (error) showToast("Gagal sinkron target", "error");
     setIsUpdating(false);
   };
 
   const savePressure = async (val) => {
+    if (!isAdmin) return;
     const p = val !== undefined ? val : localPressure;
     setIsUpdating(true);
     const { error } = await supabase.from('device_controls').update({ pump_pressure: parseInt(p) }).eq('id', 1);
-    if (!error) {
-      setLocalPressure(p);
-      showToast("Tekanan diperbarui!");
-    }
+    if (!error) { setLocalPressure(p); showToast("Tekanan diperbarui!"); }
     setIsUpdating(false);
   };
 
   const downloadCSV = () => {
-    if (!data.raw_rows || data.raw_rows.length === 0) {
-      showToast("Tidak ada data untuk diunduh", "error");
-      return;
-    }
+    if (!data.raw_rows || data.raw_rows.length === 0) { showToast("Tidak ada data", "error"); return; }
     const headers = ["ID", "Waktu", "Kelembaban (%)", "Status Pompa", "Tekanan (%)", "Sensor 1", "Sensor 2", "Sensor 3", "Sensor 4", "WiFi RSSI"];
-    const csvRows = [
-      headers.join(","),
-      ...data.raw_rows.map(row => {
-        let nodes = [0, 0, 0, 0];
-        try {
-          if (Array.isArray(row.sensor_nodes)) nodes = row.sensor_nodes;
-          else if (typeof row.sensor_nodes === 'string') nodes = JSON.parse(row.sensor_nodes);
-        } catch (e) { console.error("Error parsing sensor_nodes for CSV", e); }
-        
-        return [
-          row.id, `"${new Date(row.created_at).toLocaleString()}"`, row.humidity, row.pump_status,
-          row.pump_pressure || 0, nodes[0] || 0, nodes[1] || 0, nodes[2] || 0, nodes[3] || 0, row.wifi_rssi || -100
-        ].join(",")
-      })
-    ].join("\n");
-
+    const csvRows = [headers.join(","), ...data.raw_rows.map(row => {
+      let nodes = [0, 0, 0, 0];
+      try { if (Array.isArray(row.sensor_nodes)) nodes = row.sensor_nodes; else if (typeof row.sensor_nodes === 'string') nodes = JSON.parse(row.sensor_nodes); } catch (e) {}
+      return [row.id, `"${new Date(row.created_at).toLocaleString()}"`, row.humidity, row.pump_status, row.pump_pressure || 0, nodes[0] || 0, nodes[1] || 0, nodes[2] || 0, nodes[3] || 0, row.wifi_rssi || -100].join(",");
+    })].join("\n");
     const blob = new Blob([csvRows], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.setAttribute('hidden', '');
-    a.setAttribute('href', url);
-    a.setAttribute('download', `data_sensor_${timeframe}.csv`);
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    const a = document.createElement('a'); a.href = url; a.download = `data_sensor_${timeframe}.csv`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
     showToast("Data CSV berhasil diunduh!");
   };
 
@@ -261,90 +198,44 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-grid-pattern pb-12 font-sans selection:bg-primary-container">
-      {/* WiFi Setup Modal */}
-      {showWifiModal && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="bg-white w-full max-w-md rounded-[32px] overflow-hidden shadow-2xl animate-scale-in">
-            <div className="bg-primary p-8 text-white relative">
-              <button onClick={() => setShowWifiModal(false)} className="absolute top-6 right-6 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-all">
-                <X className="h-6 w-6 text-red-500" />
-              </button>
-              <div className="bg-white/20 w-16 h-16 rounded-3xl flex items-center justify-center mb-4">
-                <Wifi className="h-8 w-8" />
-              </div>
-              <h2 className="text-2xl font-black tracking-tight">Pengaturan WiFi</h2>
-              <p className="text-white/70 text-sm font-bold uppercase tracking-widest mt-1">Konfigurasi Jaringan Alat</p>
-            </div>
-            <div className="p-8 space-y-6">
-              <button
-                disabled={!isOnline}
-                onClick={async () => {
-                  if (window.confirm("Reset koneksi WiFi? Alat akan masuk ke mode Hotspot.")) {
-                    const { error } = await supabase.from('device_controls').update({ reset_wifi_req: true }).eq('id', 1);
-                    if (!error) { showToast("Memproses Reset..."); setShowWifiModal(false); }
-                  }
-                }}
-                className={`w-full py-5 rounded-[24px] font-black text-sm uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 ${isOnline ? 'bg-red-600 text-white shadow-xl shadow-red-100 hover:bg-red-700 active:scale-95' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
-              >
-                <RefreshCw className={`h-5 w-5 ${isUpdating ? 'animate-spin' : ''}`} /> Ganti Jaringan WiFi
-              </button>
-              {!isOnline ? (
-                <div className="flex flex-col items-center gap-2">
-                  <div className="h-1.5 w-12 bg-gray-100 rounded-full overflow-hidden"><div className="bg-red-500 h-full w-1/2 animate-shimmer"></div></div>
-                  <p className="text-[10px] text-red-500 font-black uppercase tracking-[0.2em]">Sistem Sedang Offline</p>
-                </div>
-              ) : (
-                <p className="text-[9px] text-red-400 font-bold text-center uppercase tracking-widest">Klik untuk masuk ke mode konfigurasi HP</p>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Toast Notification */}
       {toast.show && (
         <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-3 px-6 py-3 rounded-full shadow-[0_10px_40px_rgba(0,0,0,0.2)] animate-bounce-in bg-white border-2 border-surface-outline min-w-[320px] justify-center">
-          {toast.type === 'success' ? (
-            <div className="bg-[#34a853]/20 p-1.5 rounded-full"><CheckCircle2 className="h-5 w-5 text-[#34a853]" /></div>
-          ) : (
-            <div className="bg-[#ea4335]/20 p-1.5 rounded-full"><AlertCircle className="h-5 w-5 text-[#ea4335]" /></div>
-          )}
+          {toast.type === 'success' ? <div className="bg-[#34a853]/20 p-1.5 rounded-full"><CheckCircle2 className="h-5 w-5 text-[#34a853]" /></div> : <div className="bg-[#ea4335]/20 p-1.5 rounded-full"><AlertCircle className="h-5 w-5 text-[#ea4335]" /></div>}
           <span className="font-black text-sm text-gray-900 uppercase tracking-widest">{toast.message}</span>
         </div>
       )}
 
       <header className="bg-[#1a73e8] border-b border-[#174ea6] sticky top-0 z-50 px-6 h-18 flex items-center justify-between shadow-xl">
         <div className="flex items-center gap-4">
-          <div className="bg-white/20 p-2 rounded-2xl rotate-3 border border-white/40">
-            <Droplets className="text-white h-6 w-6" />
-          </div>
+          <div className="bg-white/20 p-2 rounded-2xl rotate-3 border border-white/40"><Droplets className="text-white h-6 w-6" /></div>
           <div className="flex flex-col">
-            <h1 className="text-2xl font-black text-white tracking-tighter leading-none">
-              Modjo <span className="text-[#d2e3fc]">Smart</span>
-            </h1>
+            <h1 className="text-2xl font-black text-white tracking-tighter leading-none">Modjo <span className="text-[#d2e3fc]">Smart</span></h1>
             <div className="flex items-center gap-2 mt-1">
               <div className={`h-2 w-2 rounded-full ${isOnline ? 'bg-[#34a853] shadow-[0_0_8px_#34a853]' : 'bg-[#ea4335]'}`}></div>
               <span className="text-[10px] font-black text-white/90 uppercase tracking-widest">{isOnline ? 'Sistem Online' : 'Sistem Offline'}</span>
-              {isOnline && (
-                <div className="flex items-center gap-1 ml-1 pl-2 border-l border-white/20">
-                  {getWifiIcon(data.wifi_rssi)}
-                  <span className="text-[9px] font-bold text-white/70">{data.wifi_rssi} dBm</span>
-                </div>
-              )}
+              {isOnline && <div className="flex items-center gap-1 ml-1 pl-2 border-l border-white/20">{getWifiIcon(data.wifi_rssi)}<span className="text-[9px] font-bold text-white/70">{data.wifi_rssi} dBm</span></div>}
             </div>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
-          <button onClick={() => setShowWifiModal(true)} className="p-2.5 hover:bg-white/10 rounded-full transition-all text-white border border-white/10">
-            <Settings className="h-5 w-5" />
-          </button>
-          <button 
-            onClick={downloadCSV}
-            className="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-2.5 rounded-full text-white font-black text-xs transition-all border border-white/20 active:scale-95"
-          >
+          {isAdmin && (
+            <button onClick={() => setShowWifiModal(true)} className="p-2.5 hover:bg-white/10 rounded-full transition-all text-white border border-white/10"><Settings className="h-5 w-5" /></button>
+          )}
+          <button onClick={downloadCSV} className="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-2.5 rounded-full text-white font-black text-xs transition-all border border-white/20 active:scale-95">
             <Activity className="h-4 w-4" /> <span>UNDUH CSV</span>
           </button>
+          {isAdmin && (
+            <button onClick={handleLogout} className="flex items-center gap-2 bg-[#d93025] px-5 py-2.5 rounded-full text-white font-black text-xs hover:bg-[#b21f16] transition-all shadow-lg active:scale-95 border border-[#a50e0e]">
+              <LogOut className="h-4 w-4" /> <span className="hidden sm:inline">KELUAR</span>
+            </button>
+          )}
+          {!isAdmin && (
+            <a href="/login" className="flex items-center gap-2 bg-white/20 hover:bg-white/30 px-4 py-2.5 rounded-full text-white font-black text-xs transition-all border border-white/20 active:scale-95">
+              <span>LOGIN ADMIN</span>
+            </a>
+          )}
         </div>
       </header>
 
@@ -356,24 +247,16 @@ const Dashboard = () => {
           <StatCard label="Pompa" value={data.pump_status} icon={<Zap className={`h-6 w-6 ${data.pump_status === 'ON' ? 'text-yellow-500 fill-yellow-500 animate-pulse' : 'text-gray-300'}`} />} active={data.pump_status === 'ON'} color="secondary" />
           <StatCard label="Tekanan" value={`${data.pressure}%`} icon={<Droplets className="text-cyan-500 h-6 w-6" />} color="primary" />
           <div className="bg-surface p-6 rounded-google border border-surface-outline shadow-sm hover:border-primary/30 transition-all">
-            <div className="w-12 h-12 rounded-2xl mb-4 flex items-center justify-center bg-primary-container/50">
-              <Clock className="text-purple-500 h-6 w-6" />
-            </div>
+            <div className="w-12 h-12 rounded-2xl mb-4 flex items-center justify-center bg-primary-container/50"><Clock className="text-purple-500 h-6 w-6" /></div>
             <p className="text-[10px] text-gray-400 font-black uppercase tracking-[0.2em] mb-2">Jadwal Misting</p>
             <div className="space-y-1.5">
               <div className={`flex items-center justify-between px-2.5 py-1.5 rounded-xl transition-all ${getNextSchedule().label === 'Jadwal Malam' ? 'bg-purple-50 ring-1 ring-purple-300' : ''}`}>
                 <span className="text-[10px] font-black text-gray-500 uppercase tracking-wider">Malam</span>
-                <span className="text-right">
-                  <span className="block text-sm font-black text-gray-900">{data.misting_schedule}</span>
-                  {getNextSchedule().label === 'Jadwal Malam' && <span className="block text-[9px] font-bold text-purple-500">{getRemainingTime(data.misting_schedule)}</span>}
-                </span>
+                <span className="text-right"><span className="block text-sm font-black text-gray-900">{data.misting_schedule}</span>{getNextSchedule().label === 'Jadwal Malam' && <span className="block text-[9px] font-bold text-purple-500">{getRemainingTime(data.misting_schedule)}</span>}</span>
               </div>
               <div className={`flex items-center justify-between px-2.5 py-1.5 rounded-xl transition-all ${getNextSchedule().label === 'Jadwal Pagi' ? 'bg-purple-50 ring-1 ring-purple-300' : ''}`}>
                 <span className="text-[10px] font-black text-gray-500 uppercase tracking-wider">Pagi</span>
-                <span className="text-right">
-                  <span className="block text-sm font-black text-gray-900">{data.misting_morning}</span>
-                  {getNextSchedule().label === 'Jadwal Pagi' && <span className="block text-[9px] font-bold text-purple-500">{getRemainingTime(data.misting_morning)}</span>}
-                </span>
+                <span className="text-right"><span className="block text-sm font-black text-gray-900">{data.misting_morning}</span>{getNextSchedule().label === 'Jadwal Pagi' && <span className="block text-[9px] font-bold text-purple-500">{getRemainingTime(data.misting_morning)}</span>}</span>
               </div>
             </div>
           </div>
@@ -395,23 +278,17 @@ const Dashboard = () => {
                   ))}
                 </div>
               </div>
-              <div className="p-6 h-[400px]">
-                <HumidityChart data={data.history} timeframe={timeframe} />
-              </div>
+              <div className="p-6 h-[400px]"><HumidityChart data={data.history} timeframe={timeframe} /></div>
             </div>
 
             <div className="bg-surface p-8 rounded-google shadow-sm border border-surface-outline">
-              <h3 className="text-xs font-bold text-gray-400 mb-6 flex items-center gap-2 uppercase tracking-[0.2em]">
-                <Droplets className="text-primary h-4 w-4" /> SENSOR YANG TERPASANG
-              </h3>
+              <h3 className="text-xs font-bold text-gray-400 mb-6 flex items-center gap-2 uppercase tracking-[0.2em]"><Droplets className="text-primary h-4 w-4" /> SENSOR YANG TERPASANG</h3>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
                 {data.sensor_nodes.map((val, i) => (
                   <div key={i} className={`flex flex-col items-center justify-center p-6 rounded-google border-2 transition-all ${val > 0 ? 'bg-primary-container/30 border-primary-container' : 'bg-surface-variant border-dashed border-gray-300 opacity-50'}`}>
                     <span className="text-[10px] font-black text-primary/60 uppercase mb-2">Sensor {i + 1}</span>
                     <span className="text-3xl font-black text-primary-onContainer">{val > 0 ? `${val}%` : '--'}</span>
-                    <div className="mt-3 w-full bg-white/50 rounded-full h-1.5 overflow-hidden">
-                      <div className="bg-primary h-full transition-all duration-1000" style={{ width: `${val}%` }}></div>
-                    </div>
+                    <div className="mt-3 w-full bg-white/50 rounded-full h-1.5 overflow-hidden"><div className="bg-primary h-full transition-all duration-1000" style={{ width: `${val}%` }}></div></div>
                   </div>
                 ))}
               </div>
@@ -419,12 +296,10 @@ const Dashboard = () => {
           </div>
 
           <div className="space-y-8">
-            {/* Control Panel (Hanya muncul jika isAdmin = true) */}
+            {/* PANEL KONTROL: Hanya muncul jika isAdmin = true. TIDAK ADA KARTU "AKSES PEMANTAU" LAGI. */}
             {isAdmin && (
               <div className={`bg-surface p-8 rounded-google shadow-md border border-primary/10 transition-all ${!isOnline ? 'grayscale opacity-70 pointer-events-none' : ''}`}>
-                <h3 className="text-xl font-black text-gray-900 mb-8 flex items-center gap-3">
-                  <Zap className="text-yellow-500 h-6 w-6" /> Kontrol Panel
-                </h3>
+                <h3 className="text-xl font-black text-gray-900 mb-8 flex items-center gap-3"><Zap className="text-yellow-500 h-6 w-6" /> Kontrol Panel</h3>
                 <div className="space-y-6">
                   <div className="bg-surface-variant p-6 rounded-google border border-surface-outline flex items-center justify-between shadow-sm">
                     <div>
@@ -442,9 +317,7 @@ const Dashboard = () => {
                       <span className="bg-white px-3 py-1 rounded-full text-xs font-black text-primary border border-primary-container">{localPressure}%</span>
                     </div>
                     <input type="range" min="0" max="100" value={localPressure} onMouseDown={() => setIsDraggingPressure(true)} onTouchStart={() => setIsDraggingPressure(true)} onChange={(e) => setLocalPressure(e.target.value)} onMouseUp={() => { savePressure(); setIsDraggingPressure(false); }} onTouchEnd={() => { savePressure(); setIsDraggingPressure(false); }} className="w-full h-3 bg-white rounded-full appearance-none cursor-pointer border border-surface-outline accent-primary" />
-                    <div className="flex justify-between mt-2 px-1 text-[9px] font-bold text-gray-400 uppercase tracking-widest">
-                      <span>Lemah</span><span>Sangat Kuat</span>
-                    </div>
+                    <div className="flex justify-between mt-2 px-1 text-[9px] font-bold text-gray-400 uppercase tracking-widest"><span>Lemah</span><span>Sangat Kuat</span></div>
                   </div>
 
                   <div className="bg-primary-container/30 p-5 rounded-google border border-primary-container">
@@ -461,13 +334,8 @@ const Dashboard = () => {
             )}
 
             <div className="bg-secondary-container/20 p-6 rounded-google border border-secondary-container border-dashed">
-              <div className="flex items-center gap-3 mb-2">
-                <CheckCircle2 className="text-secondary h-5 w-5" />
-                <p className="text-xs font-black text-secondary-onContainer uppercase tracking-widest">Optimal Range</p>
-              </div>
-              <p className="text-[10px] text-secondary-onContainer/70 leading-relaxed font-medium">
-                Trichoderma sp. tumbuh optimal pada kelembaban 60-80%. Pastikan target alat berada dalam rentang ini.
-              </p>
+              <div className="flex items-center gap-3 mb-2"><CheckCircle2 className="text-secondary h-5 w-5" /><p className="text-xs font-black text-secondary-onContainer uppercase tracking-widest">Optimal Range</p></div>
+              <p className="text-[10px] text-secondary-onContainer/70 leading-relaxed font-medium">Trichoderma sp. tumbuh optimal pada kelembaban 60-80%. Pastikan target alat berada dalam rentang ini.</p>
             </div>
           </div>
         </div>
@@ -484,17 +352,13 @@ const StatCard = ({ label, value, icon, active = false, color = 'primary' }) => 
   </div>
 );
 
-const ThresholdControl = ({ label, value, onChange, color }) => (
+const ThresholdControl = ({ label, value, onChange }) => (
   <div className="flex flex-col items-center gap-2">
     <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">{label}</span>
     <div className="flex items-center gap-2">
-      <button onClick={() => onChange(Math.max(0, parseInt(value) - 1))} className="p-1.5 bg-white rounded-full border border-surface-outline text-gray-600 hover:bg-gray-100 active:scale-90 transition-all">
-        <Minus className="h-3 w-3" />
-      </button>
+      <button onClick={() => onChange(Math.max(0, parseInt(value) - 1))} className="p-1.5 bg-white rounded-full border border-surface-outline text-gray-600 hover:bg-gray-100 active:scale-90 transition-all"><Minus className="h-3 w-3" /></button>
       <span className="text-xl font-black w-10 text-center">{value}</span>
-      <button onClick={() => onChange(Math.min(100, parseInt(value) + 1))} className="p-1.5 bg-white rounded-full border border-surface-outline text-gray-600 hover:bg-gray-100 active:scale-90 transition-all">
-        <Plus className="h-3 w-3" />
-      </button>
+      <button onClick={() => onChange(Math.min(100, parseInt(value) + 1))} className="p-1.5 bg-white rounded-full border border-surface-outline text-gray-600 hover:bg-gray-100 active:scale-90 transition-all"><Plus className="h-3 w-3" /></button>
     </div>
   </div>
 );
